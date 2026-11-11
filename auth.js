@@ -28,6 +28,7 @@ function makeFirestoreDB() {
   async loadMeta() { return await payload("meta"); },
   async loadSummary(cc) { const p = await payload("sum_" + cc); return (p || []).map(toSum); },
   async loadIssues(cc, days) { const out = []; await Promise.all(days.map(async (d) => { const p = await payload("iss_" + cc + "_" + d); if (p) p.forEach((r) => out.push(toIss(r))); })); return out; },
+  async loadLookup(cc, days) { const out = []; await Promise.all(days.map(async (d) => { const p = await payload("lk_" + cc + "_" + d); if (p) p.forEach((r) => out.push({ epc: r[0], store: r[1], st: r[2], txn: r[3], swtxn: r[4], cnt: r[5], d, cc })); })); return out; },
   async loadStores() { const snap = await col("stores").get(); const o = {}; snap.forEach((d) => { o[d.id] = d.data(); }); return o; },
   async saveStore(s) {
    const ref = col("stores").doc(s.code), before = await snapData(ref);
@@ -66,6 +67,7 @@ function makeDemoDB() {
   async loadMeta() { return L() ? L().meta : null; },
   async loadSummary(cc) { return (L() ? L().sum : []).map(toSum).filter((r) => r.cc === cc); },
   async loadIssues(cc, days) { const set = new Set(days); return (L() ? L().iss : []).map(toIss).filter((r) => r.cc === cc && set.has(r.d)); },
+  async loadLookup(cc, days) { const set = new Set(days); const Lk = L() && L().lk; if (Lk) return Lk.filter((r) => r[0] === cc && set.has(r[1])).map((r) => ({ epc: r[2], store: r[3], st: r[4], txn: r[5], swtxn: r[6], cnt: r[7], d: r[1], cc })); return (L() ? L().iss : []).map(toIss).filter((r) => r.cc === cc && set.has(r.d)).map((r) => ({ epc: r.epc, store: r.store, st: r.st, txn: r.txn, swtxn: r.swtxn, cnt: r.cnt, d: r.d, cc })); },
   async loadStores() { return get("stores", {}); },
   async saveStore(s) { const all = get("stores", {}); const before = all[s.code]; all[s.code] = cleanObj({ name: s.name, country: s.country, brand: s.brand, channel: s.channel, active: s.active, closedOn: s.closedOn || null, note: s.note || "" }); put("stores", all); log("store.save", "stores", s.code, "Store " + s.code + (before ? " edited" : " added"), before, all[s.code]); },
   async loadRoles() { return get("roles", {}); },
@@ -97,6 +99,13 @@ async function loadAll() {
  document.body.classList.remove("loading");
  render(); hideBoot();
  if (state.view === "list" || state.view === "ecm") ensureIssues();
+}
+async function ensureLookup() {
+ if (!state.maxD || !perm("details") || state.lk || state.lkLoading) return;
+ state.lkLoading = true; render();
+ try { const days = periodDays(30), all = []; for (const c of visibleCountries()) all.push(...(await DB.loadLookup(c.id, days))); state.lk = all; state.lkIdx = new Map(); for (const r of all) { const a = state.lkIdx.get(r.epc); if (a) a.push(r); else state.lkIdx.set(r.epc, [r]); } }
+  catch (e) { console.error(e); state.lkErr = (e && e.message) || String(e); }
+ state.lkLoading = false; render();
 }
 async function ensureIssues() {
  if (!state.maxD || !perm("details")) return;
@@ -177,12 +186,13 @@ async function boot() {
  const t = safe.get("sc.period"); if (t === "7" || t === "14" || t === "30") state.period = +t;
  if (safe.get("sc.exgap") === "0") state.exGap = false;
  const hp = new URLSearchParams(location.hash.slice(1));
- if (["overview", "list", "stores", "ecm", "guide", "settings"].includes(hp.get("view"))) state.view = hp.get("view");
+ if (["overview", "list", "stores", "ecm", "search", "guide", "settings"].includes(hp.get("view"))) state.view = hp.get("view");
  if (["7", "14", "30"].includes(hp.get("period"))) state.period = +hp.get("period");
  for (const k of ["cat", "ch", "br", "cc"]) if (hp.get(k)) state[k] = hp.get(k);
  if (hp.get("exgap") === "0") state.exGap = false;
  if (hp.get("theme") === "light" || hp.get("theme") === "dark") document.documentElement.setAttribute("data-theme", hp.get("theme"));
  if (hp.get("tab")) state.settingsTab = hp.get("tab");
+ if (hp.get("sq")) state.sq = hp.get("sq");
  document.body.prepend(bootScreen());
  if (!FIREBASE_CONFIG && hp.get("preview") === "login") { showLogin(hp.get("mode") || "signin"); return; }   // design preview only
  if (!FIREBASE_CONFIG) {

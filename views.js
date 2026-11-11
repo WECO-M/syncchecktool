@@ -1,6 +1,6 @@
 "use strict";
 /* IORA Group · SyncCheck — page shell and views */
-const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], ["stores", "Stores", "store"], ["ecm", "ECM", "globe"], ["guide", "How it works", "book"]];
+const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], ["stores", "Stores", "store"], ["ecm", "ECM", "globe"], ["search", "EPC search", "search"], ["guide", "How it works", "book"]];
 const rateClass = (x) => (x >= 99 ? "g" : x >= 97 ? "w" : "b");
 const scopeText = (n) => { const d = periodDays(n || state.period); return fday(d[0]) + " – " + fday(d[d.length - 1]); };
 function vendorOf(k) { return VENDOR[(STATUS[k] || {}).who] || ""; }
@@ -12,7 +12,7 @@ function render() {
  if (state.view === "settings") { root.replaceChildren(shell(settingsBody())); return; }
  if (!state.maxD) { root.replaceChildren(shell(h("div", { class: "card" }, h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("h3", { text: "No data yet" }), h("p", { text: DB && DB.demo ? "Run feed\\build_synccheck.ps1 to create the local data file." : "The daily job has not published any data yet. Ask the owner to run the SyncCheck feed." }))))); return; }
  const a = aggregate();
- const body = ({ overview: viewOverview, list: viewList, stores: viewStores, ecm: viewECM, guide: viewGuide }[state.view] || viewOverview)(a);
+ const body = ({ overview: viewOverview, list: viewList, stores: viewStores, ecm: viewECM, search: viewSearch, guide: viewGuide }[state.view] || viewOverview)(a);
  root.replaceChildren(shell(body, a));
  const tt = $("totop"); if (tt) tt.classList.toggle("on", scrollY > 500);
 }
@@ -42,11 +42,11 @@ function shell(body, a) {
  const nav = h("div", { class: "wrap floater" }, h("div", { class: "navcard" },
   state.view === "settings" ? h("div", { class: "tabs" }, h("button", { class: "tab", style: "background:var(--card2)", onclick: () => go("overview") }, ico("chev", "flip"), "Back"), settingsNav()) :
   h("div", { class: "tabs", role: "tablist" }, TABS.map(([id, label, ic]) => h("button", { class: "tab", role: "tab", "aria-selected": state.view === id ? "true" : "false", onclick: () => go(id) }, ico(ic), label, id === "list" && m && m.issues ? h("span", { class: "badge", text: nf(m.issues) }) : null))),
-  state.view !== "settings" && state.maxD ? filterRow() : null));
+  state.view !== "settings" && state.view !== "search" && state.maxD ? filterRow() : null));
  const banners = state.view === "settings" || !state.maxD ? null : h("div", { class: "wrap banners" }, bannerEls(gd));
  return h("div", { onclick: () => { if (state.menu) { state.menu = false; render(); } } }, hero, nav, banners, h("main", null, h("div", { class: "wrap" }, body, h("div", { class: "foot" }, "IORA Group · Internal use only · Confidential. Source: BigQuery (POS sales with serial · SWIMS POS sale records). EPCs, transaction numbers, store codes and SKUs only; no customer data."))));
 }
-function go(view, tab) { state.view = view; state.menu = false; if (tab) state.settingsTab = tab; state.page = 0; if (view === "list") ensureIssues(); closeDrawer(); render(); scrollTo(0, 0); }
+function go(view, tab) { state.view = view; state.menu = false; if (tab) state.settingsTab = tab; state.page = 0; if (view === "list") ensureIssues(); if (view === "search") ensureLookup(); closeDrawer(); render(); scrollTo(0, 0); }
 function toggleTheme() { const nx = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = nx; safe.set("sc.theme", nx); render(); }
 window.addEventListener("scroll", () => { const t = $("totop"); if (t) t.classList.toggle("on", scrollY > 500); }, { passive: true });
 
@@ -304,6 +304,41 @@ function viewStores(a) {
  const off = Object.values(state.stores).filter((s) => s.active === false || (state.settings.hiddenBrands || []).includes(s.brand)).sort((x, y) => x.code.localeCompare(y.code));
  if (canEdit && off.length) out.push(h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h3", { text: "Closed or hidden stores" }), h("div", { class: "sub", text: "These are left out of every number. Edit one to bring it back." }))),
   h("div", { class: "brandrow" }, off.map((s) => h("button", { class: "bchip", onclick: () => openStoreEditor(s) }, s.code, h("em", { text: s.active === false ? "closed" : brandInfo(s.brand).label }))))));
+ return out;
+}
+
+/* ---------- EPC search ---------- */
+const SEARCH_ST = { OK: { short: "Deducted in SWIMS", v: "--s3" }, RETURN_OK: { short: "Return recorded in SWIMS", v: "--s3" } };
+const stInfo = (k) => SEARCH_ST[k] || STATUS[k] || { short: k, v: "--ok" };
+function searchEpcs(q) {
+ const terms = String(q || "").split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean).slice(0, 30);
+ return terms.map((t) => {
+  const key = t.toUpperCase(); let rows = state.lkIdx.get(t) || state.lkIdx.get(key) || [], partial = false;
+  if (!rows.length && t.length >= 4) { partial = true; for (const [e, a] of state.lkIdx) { if (e.toUpperCase().includes(key)) { rows = rows.concat(a); if (rows.length > 60) break; } } }
+  rows = rows.filter((r) => { const s = storeInfo(r.store); return !(state.settings.hiddenBrands || []).includes(s.brand) && canSeeCountry(r.cc) && canSeeBrand(s.brand) && canSeeStore(r.store); });
+  rows.sort((a, b) => (a.d < b.d ? 1 : -1));
+  return { t, rows, partial };
+ });
+}
+function viewSearch() {
+ if (!perm("details")) return [h("div", { class: "card" }, h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("h3", { text: "EPC search is not part of your role" }), h("p", { text: "Ask an Administrator for the “See EPC lists and export” permission." })))];
+ const nd = periodDays(30).length;
+ const box = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "Find an EPC" }), h("div", { class: "sub", text: "Type or paste one or more EPCs (space, comma or new line). You will see which store sold it, on which transaction, and whether SWIMS deducted it. Covers the last " + nd + " days of POS sales." }))),
+  h("div", { class: "sbar" }, ico("search"), h("input", { class: "inp", id: "epcq", type: "search", autocomplete: "off", spellcheck: "false", placeholder: "e.g. 496920", value: state.sq || "", "aria-label": "Search EPC",
+   oninput: (e) => { state.sq = e.target.value; clearTimeout(window.__sqt); window.__sqt = setTimeout(() => { const p = e.target.selectionStart; render(); const n = $("epcq"); if (n) { n.focus(); try { n.setSelectionRange(p, p); } catch (x) {} } }, 250); } })));
+ if (state.lkErr) { box.append(h("div", { class: "empty" }, h("div", { text: "Could not load the lookup: " + state.lkErr }), h("div", { class: "muted", text: "The owner may need to publish the latest security rules, then refresh." }))); return [box]; }
+ if (state.lkLoading || !state.lk) { box.append(h("div", { style: "padding:10px 0" }, h("div", { class: "skel", style: "width:50%;margin-bottom:12px" }), h("div", { class: "muted", text: "Loading the EPC lookup (about 30 days of sales)… a few seconds the first time." }))); if (!state.lkLoading) setTimeout(ensureLookup, 0); return [box]; }
+ const res = searchEpcs(state.sq);
+ if (!res.length) { box.append(h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("div", { text: "Start typing an EPC above." }), h("div", { class: "muted", text: nf(state.lkIdx.size) + " EPCs available to search." }))); return [box]; }
+ const out = [box];
+ for (const r of res) {
+  const c = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { class: "mono", text: r.t }), h("div", { class: "sub", text: r.rows.length ? (r.partial ? "Partial match · " : "") + nf(r.rows.length) + " sale line" + (r.rows.length > 1 ? "s" : "") + " found" : "Not found" }))));
+  if (!r.rows.length) { c.append(h("div", { class: "empty" }, h("div", { text: "No POS sale for this EPC in the last " + nd + " days (or outside your access)." }), h("div", { class: "muted", text: "Check the digits, or it may have been sold before this window." }))); out.push(c); continue; }
+  const head = ["SWIMS result", "Date", "Store", "Brand", "EPC", "POS txn", "SWIMS txn"];
+  c.append(h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, head.map((x) => h("th", { text: x })))), h("tbody", null, r.rows.map((x) => { const s = storeInfo(x.store), si = stInfo(x.st); return h("tr", null,
+   h("td", null, h("span", { class: "tag" }, h("i", { style: "background:var(" + si.v + ")" }), si.short)), h("td", { text: fdayL(x.d) }), h("td", { text: x.store + (s.name && s.name !== x.store ? " · " + s.name : "") }), h("td", { text: brandInfo(s.brand).label }), h("td", { class: "mono", text: x.epc }), h("td", { class: "mono", text: x.txn }), h("td", { class: "mono", text: x.swtxn || "" })); })))));
+  out.push(c);
+ }
  return out;
 }
 
