@@ -37,7 +37,7 @@ function shell(body, a) {
    state.maxD ? h("div", { class: "chips" }, h("span", { class: "chip" + (stale ? " stale" : "") }, h("i"), "POS data to ", h("b", { text: fday(state.maxD) })), h("span", { class: "chip" }, "SWIMS to ", h("b", { text: String((state.meta && state.meta.swimsMaxOn) || "").slice(0, 16) })), h("span", { class: "chip" }, "Refreshed ", h("b", { text: (state.meta && state.meta.generated) || "" }))) : null,
    h("div", { class: "me" }, h("button", { class: "avbtn", "aria-haspopup": "menu", "aria-expanded": state.menu ? "true" : "false", onclick: (e) => { e.stopPropagation(); state.menu = !state.menu; render(); } }, avatarEl(me, "sm"), h("span", { text: (me.name || me.email || "").split(" ")[0] })), menu)),
   h("div", { class: "herogrid" },
-   h("div", null, h("div", { class: "eyebrow", text: "IORA Group · SG and MY · stores and ECM" }), h("h1", { text: headline }), h("p", { class: "lead", text: lead }),
+   h("div", null, h("h1", { text: headline }), h("p", { class: "lead", text: lead }),
     m ? h("span", { class: "pillstat " + tone }, ico(tone === "good" ? "check" : "alert"), tone === "good" ? "In good shape" : tone === "warn" ? "A few things to chase" : "Needs a closer look") : null))));
  const nav = h("div", { class: "wrap floater" }, h("div", { class: "navcard" },
   state.view === "settings" ? h("div", { class: "tabs" }, h("button", { class: "tab", style: "background:var(--card2)", onclick: () => go("overview") }, ico("chev", "flip"), "Back"), settingsNav()) :
