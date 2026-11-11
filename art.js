@@ -29,7 +29,7 @@ const HERO_ART = '<svg viewBox="0 0 520 320" role="img" aria-label="A POS termin
  + '</svg>';
 
 /* Sign-in picture: the same illustration without the "Not deducted?" caption box */
-const LOGIN_ART = HERO_ART.replace(/<g transform="translate\(132 240\)">.*?<\/g>/, "");
+const LOGIN_ART = HERO_ART.replace(/<g transform="translate\(132 240\)">.*?<\/g>/, "").replace(/<text x="95" y="-8"[^>]*>SWIMS<\/text>/, "").replace(/<circle cx="262" cy="160" r="150"[^>]*\/><circle cx="262" cy="160" r="104"[^>]*\/>/, "").replace('viewBox="0 0 520 320"', 'viewBox="14 14 484 290"');
 
 const EMPTY_ART = '<svg viewBox="0 0 160 120" aria-hidden="true"><circle cx="80" cy="60" r="52" fill="#e4f6ea"/><circle cx="80" cy="60" r="38" fill="#fff" stroke="#0b7a3b" stroke-width="4"/><path d="M62 61l12 12 24-26" fill="none" stroke="#0b7a3b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="28" cy="30" r="5" fill="#ffb199"/><circle cx="136" cy="88" r="6" fill="#8fb4f2"/><circle cx="130" cy="24" r="3.5" fill="#f4d27a"/></svg>';
 

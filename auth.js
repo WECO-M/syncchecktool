@@ -117,7 +117,7 @@ function hideBoot() { const b = $("boot"); if (!b) return; const wait = Math.max
 
 /* ---- sign-in ---- */
 function authSide() {
- return h("div", { class: "side" }, h("div", null, h("div", { class: "eyebrow" }, "IORA Group"), h("h1", null, "SyncCheck")), h("div", { html: LOGIN_ART, style: "max-width:520px" }));
+ return h("div", { class: "side" }, h("div", null, h("div", { class: "eyebrow" }, "IORA Group"), h("h1", null, "SyncCheck")), h("div", { style: "flex:1;display:grid;align-content:center;margin-top:-40px" }, h("div", { html: LOGIN_ART, style: "max-width:500px;width:100%" })));
 }
 function friendlyAuthError(ex) {
  const c = (ex && ex.code) || "";
