@@ -117,7 +117,9 @@ function hideBoot() { const b = $("boot"); if (!b) return; const wait = Math.max
 
 /* ---- sign-in ---- */
 function authSide() {
- return h("div", { class: "side" }, h("div", null, h("div", { class: "eyebrow" }, "IORA Group"), h("h1", null, "SyncCheck")), h("div", { style: "flex:1;display:grid;align-content:center;margin-top:-40px" }, h("div", { html: LOGIN_ART, style: "max-width:500px;width:100%" })));
+ return h("div", { class: "side" },
+  h("div", { class: "lockup" }, h("div", { html: LOGO_SVG, style: "width:48px;height:48px;flex:none" }), h("div", null, h("b", { text: "SyncCheck" }), h("span", { text: "IORA Group" }))),
+  h("div", { class: "art" }, h("div", { html: LOGIN_ART })));
 }
 function friendlyAuthError(ex) {
  const c = (ex && ex.code) || "";
@@ -148,9 +150,9 @@ function showLogin(mode) {
  }
  const link = (t, m) => h("a", { href: "#", onclick: (e) => { e.preventDefault(); showLogin(m); } }, t);
  const form = h("form", { onsubmit: submit },
-  h("div", { html: LOGO_SVG.replace(/#ffffff/g, "#0f172a"), style: "width:44px;height:44px" }),
-  h("h2", null, mode === "signin" ? "Sign in" : mode === "signup" ? "Create your account" : "Reset password"),
-  h("div", { class: "muted" }, mode === "signin" ? "Use the account your Administrator created for you." : mode === "signup" ? "An Administrator approves new accounts before they can see anything." : "We will email you a link to choose a new password."),
+  h("div", { class: "mlogo", html: LOGO_SVG.replace(/#ffffff/g, "#0f172a"), style: "width:44px;height:44px" }),
+  h("div", null, h("h2", null, mode === "signin" ? "Welcome back" : mode === "signup" ? "Create your account" : "Reset password"),
+   h("div", { class: "muted", style: "margin-top:6px" }, mode === "signin" ? "Sign in to SyncCheck with the account your Administrator created for you." : mode === "signup" ? "An Administrator approves new accounts before they can see anything." : "We will email you a link to choose a new password.")),
   mode === "signup" ? h("label", { class: "field" }, h("span", null, "Name"), nameIn) : null,
   h("label", { class: "field" }, h("span", null, "Email"), email),
   mode !== "reset" ? h("label", { class: "field" }, h("span", null, "Password"), pass) : null,
