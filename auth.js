@@ -117,8 +117,7 @@ function hideBoot() { const b = $("boot"); if (!b) return; const wait = Math.max
 
 /* ---- sign-in ---- */
 function authSide() {
- return h("div", { class: "side" }, h("div", null, h("div", { class: "eyebrow" }, "IORA Group"), h("h1", null, "SyncCheck"), h("p", { style: "font-size:18px;opacity:.9;max-width:440px", text: "See every EPC that POS sold and whether SWIMS took it out of stock. Spot the gaps, then ask the right vendor." })),
-  h("div", { html: HERO_ART, style: "max-width:520px" }), h("div", { style: "font-size:13px;opacity:.7", text: "Internal use only · Confidential" }));
+ return h("div", { class: "side" }, h("div", null, h("div", { class: "eyebrow" }, "IORA Group"), h("h1", null, "SyncCheck")));
 }
 function friendlyAuthError(ex) {
  const c = (ex && ex.code) || "";
