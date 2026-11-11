@@ -1,0 +1,5 @@
+_debug.html
+*.csv
+*.xlsx
+data.local.js
+local/
