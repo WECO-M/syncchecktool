@@ -218,7 +218,7 @@ function settingsAudit(body) {
  body.append(secHead("Activity log", "Who changed what. Only the owner can open this page."));
  if (!isOwner(state.user) && FIREBASE_CONFIG) { body.append(h("div", { class: "muted", text: "Not available." })); return; }
  if (Date.now() >= (state.auditUntil || 0)) {
-  const pw = h("input", { class: "inp", type: "password", autocomplete: "current-password", placeholder: "••••••••", style: "max-width:320px" }); const err = h("div", { class: "err" });
+  const pw = h("input", { class: "inp", type: "password", autocomplete: "current-password", placeholder: "Enter your password", style: "max-width:320px" }); const err = h("div", { class: "err" });
   const goOpen = async () => {
    err.textContent = ""; if (FIREBASE_CONFIG && !pw.value) { err.textContent = "Enter your password."; return; }
    try {

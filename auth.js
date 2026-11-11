@@ -134,7 +134,10 @@ function showLogin(mode) {
  mode = mode || "signin"; hideBoot();
  const nameIn = h("input", { class: "inp", type: "text", placeholder: "Your full name", autocomplete: "name", maxlength: "80" });
  const email = h("input", { class: "inp", type: "email", placeholder: "you@iora.com.my", autocomplete: "username" });
- const pass = h("input", { class: "inp", type: "password", placeholder: "••••••••", autocomplete: mode === "signup" ? "new-password" : "current-password" });
+ const pass = h("input", { class: "inp", type: "password", placeholder: "Enter your password", autocomplete: mode === "signup" ? "new-password" : "current-password" });
+ const eye = h("button", { type: "button", class: "eye", "aria-label": "Show password", "aria-pressed": "false", title: "Show password" }, ico("eye"));
+ eye.addEventListener("click", () => { const show = pass.type === "password"; pass.type = show ? "text" : "password"; eye.replaceChildren(ico(show ? "eyeoff" : "eye")); eye.setAttribute("aria-pressed", show ? "true" : "false"); eye.setAttribute("aria-label", show ? "Hide password" : "Show password"); eye.title = show ? "Hide password" : "Show password"; pass.focus(); });
+ const passBox = h("div", { class: "pwwrap" }, pass, eye);
  const err = h("div", { class: "err" }), ok = h("div", { class: "ok" });
  async function submit(e) {
   e.preventDefault(); err.textContent = ""; ok.textContent = "";
@@ -155,7 +158,7 @@ function showLogin(mode) {
    h("div", { class: "muted", style: "margin-top:6px" }, mode === "signin" ? "Sign in to SyncCheck with the account your Administrator created for you." : mode === "signup" ? "An Administrator approves new accounts before they can see anything." : "We will email you a link to choose a new password.")),
   mode === "signup" ? h("label", { class: "field" }, h("span", null, "Name"), nameIn) : null,
   h("label", { class: "field" }, h("span", null, "Email"), email),
-  mode !== "reset" ? h("label", { class: "field" }, h("span", null, "Password"), pass) : null,
+  mode !== "reset" ? h("div", { class: "field" }, h("span", null, "Password"), passBox) : null,
   h("button", { class: "btn pri", type: "submit", style: "justify-content:center;height:46px" }, mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"), err, ok,
   h("div", { class: "links" }, mode === "signin" ? (state.settings.allowSelfSignup !== false ? link("Create account", "signup") : h("span")) : link("Back to sign in", "signin"), mode === "signin" ? link("Forgot password?", "reset") : null));
  $("root").replaceChildren(h("div", { class: "auth" }, authSide(), h("div", { class: "box" }, form)));

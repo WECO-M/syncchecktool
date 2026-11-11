@@ -35,8 +35,7 @@ function shell(body, a) {
   h("div", { class: "util" },
    h("a", { class: "logo", href: "#", onclick: (e) => { e.preventDefault(); go("overview"); } }, h("div", { html: LOGO_SVG, style: "width:42px;height:42px" }), h("div", null, h("b", { text: "SyncCheck" }), h("span", { text: "IORA Group · POS vs SWIMS" }))),
    state.maxD ? h("div", { class: "chips" }, h("span", { class: "chip" + (stale ? " stale" : "") }, h("i"), "POS data to ", h("b", { text: fday(state.maxD) })), h("span", { class: "chip" }, "SWIMS to ", h("b", { text: String((state.meta && state.meta.swimsMaxOn) || "").slice(0, 16) })), h("span", { class: "chip" }, "Refreshed ", h("b", { text: (state.meta && state.meta.generated) || "" }))) : null,
-   h("div", { class: "me" }, h("button", { class: "avbtn", "aria-haspopup": "menu", "aria-expanded": state.menu ? "true" : "false", onclick: (e) => { e.stopPropagation(); state.menu = !state.menu; render(); } }, avatarEl(me, "sm"), h("span", { text: me.name || me.email || "" })), menu),
-   FIREBASE_CONFIG ? h("button", { class: "iconbtn", style: "width:auto;padding:0 14px;gap:8px;display:flex;align-items:center;font-weight:600", title: "Sign out", "aria-label": "Sign out", onclick: () => auth.signOut() }, ico("logout"), "Sign out") : null),
+   h("div", { class: "me" }, h("button", { class: "avbtn", "aria-haspopup": "menu", "aria-expanded": state.menu ? "true" : "false", onclick: (e) => { e.stopPropagation(); state.menu = !state.menu; render(); } }, avatarEl(me, "sm"), h("span", { text: me.name || me.email || "" })), menu)),
   h("div", { class: "herogrid" },
    h("div", null, h("h1", { text: headline }), h("p", { class: "lead", text: lead }),
     m ? h("span", { class: "pillstat " + tone }, ico(tone === "good" ? "check" : "alert"), tone === "good" ? "In good shape" : tone === "warn" ? "A few things to chase" : "Needs a closer look") : null))));
