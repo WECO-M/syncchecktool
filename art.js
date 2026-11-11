@@ -28,6 +28,9 @@ const HERO_ART = '<svg viewBox="0 0 520 320" role="img" aria-label="A POS termin
  + '<g transform="translate(132 240)"><rect width="196" height="58" rx="14" fill="#fff"/><circle cx="29" cy="29" r="16" fill="#fde8e6"/><path d="M29 21v10M29 36.5v.5" stroke="#b42318" stroke-width="3.4" stroke-linecap="round"/><text x="54" y="25" font-family="Segoe UI,Arial" font-weight="700" font-size="14" fill="#0f172a">Not deducted?</text><text x="54" y="43" font-family="Segoe UI,Arial" font-size="12" fill="#64748b">We flag it for the vendor</text></g>'
  + '</svg>';
 
+/* Sign-in picture: the same illustration without the "Not deducted?" caption box */
+const LOGIN_ART = HERO_ART.replace(/<g transform="translate\(132 240\)">.*?<\/g>/, "");
+
 const EMPTY_ART = '<svg viewBox="0 0 160 120" aria-hidden="true"><circle cx="80" cy="60" r="52" fill="#e4f6ea"/><circle cx="80" cy="60" r="38" fill="#fff" stroke="#0b7a3b" stroke-width="4"/><path d="M62 61l12 12 24-26" fill="none" stroke="#0b7a3b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="28" cy="30" r="5" fill="#ffb199"/><circle cx="136" cy="88" r="6" fill="#8fb4f2"/><circle cx="130" cy="24" r="3.5" fill="#f4d27a"/></svg>';
 
 const ICONS = {
