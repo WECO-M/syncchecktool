@@ -22,17 +22,17 @@ function settingsBody() {
 
 /* ---- profile ---- */
 function settingsProfile(body) {
- const u = state.user || {}; const lockedAcc = isOwner(u) && !!FIREBASE_CONFIG; const name = h("input", { class: "inp", type: "text", value: u.name || "", disabled: lockedAcc }); const msg = h("span", { class: "muted" });
+ const u = state.user || {}; const lockedAcc = isOwner(u) && !!FIREBASE_CONFIG; const name = h("input", { class: "inp", type: "text", value: u.name || "" }); const msg = h("span", { class: "muted" });
  let pick = isOwner(u) && (!u.color || u.color === "special") ? "special" : (AV_COLORS.includes(u.color) ? u.color : avatarBg(u));
  const opts = (isOwner(u) ? [["special", AV_SPECIAL]] : []).concat(AV_COLORS.map((c) => [c, c]));
  const prev = h("div", { class: "av big", style: { background: pick === "special" ? AV_SPECIAL : pick, color: pick === "special" ? "#3b2a00" : "#fff" } }, initialsOf(u));
- const sws = h("div", { class: "swatches" }, opts.map(([key, css]) => h("button", { type: "button", class: "sw" + (key === pick ? " on" : ""), "data-k": key, disabled: lockedAcc, style: { background: css }, "aria-label": "Colour " + key, onclick: () => { pick = key; sws.querySelectorAll(".sw").forEach((b) => b.classList.toggle("on", b.dataset.k === key)); prev.style.background = key === "special" ? AV_SPECIAL : key; prev.style.color = key === "special" ? "#3b2a00" : "#fff"; } })));
+ const sws = h("div", { class: "swatches" }, opts.map(([key, css]) => h("button", { type: "button", class: "sw" + (key === pick ? " on" : ""), "data-k": key, style: { background: css }, "aria-label": "Colour " + key, onclick: () => { pick = key; sws.querySelectorAll(".sw").forEach((b) => b.classList.toggle("on", b.dataset.k === key)); prev.style.background = key === "special" ? AV_SPECIAL : key; prev.style.color = key === "special" ? "#3b2a00" : "#fff"; } })));
  const ro = (v) => h("input", { class: "inp", type: "text", value: v, disabled: true });
- body.append(secHead("My profile", "How you appear to colleagues."), lockedAcc ? h("div", { class: "banner info", style: "margin-bottom:16px;max-width:460px" }, h("div", { class: "ic" }, ico("lock")), h("div", null, h("b", { text: "Owner account, locked. " }), "Its name, colour, role and access cannot be edited by anyone.")) : null, h("div", { class: "form", style: "max-width:460px" },
+ body.append(secHead("My profile", "How you appear to colleagues."), lockedAcc ? h("div", { class: "banner info", style: "margin-bottom:16px;max-width:460px" }, h("div", { class: "ic" }, ico("lock")), h("div", null, h("b", { text: "Owner account. " }), "Your role, access and email are locked and cannot be changed by anyone. You can change your name and colour here.")) : null, h("div", { class: "form", style: "max-width:460px" },
   h("div", { class: "row", style: "gap:18px" }, prev, h("div", null, h("div", { class: "field" }, h("span", null, "Profile colour")), sws)),
   h("label", { class: "field" }, h("span", null, "Name"), name), h("label", { class: "field" }, h("span", null, "Email"), ro(u.email || "")), h("label", { class: "field" }, h("span", null, "Role"), ro(roleName(u.role))),
   h("label", { class: "field" }, h("span", null, "Access"), ro(isAdminUser() ? "All countries, brands and stores" : (u.countries || []).join(" + ") + " · " + (u.allBrands === false ? (u.brands || []).map((b) => brandInfo(b).label).join(", ") : "all brands") + " · " + (u.allStores === false ? (u.stores || []).length + " stores" : "all stores"))),
-  h("div", { class: "row" }, h("button", { class: "btn pri", disabled: lockedAcc, onclick: async () => { try { await DB.updateUser(u.uid, { name: name.value.trim(), color: pick }); u.name = name.value.trim(); u.color = pick; toast("Saved"); render(); } catch (e) { msg.textContent = e.message; } } }, "Save"),
+  h("div", { class: "row" }, h("button", { class: "btn pri", onclick: async () => { try { await DB.updateUser(u.uid, { name: name.value.trim(), color: pick }); u.name = name.value.trim(); u.color = pick; toast("Saved"); render(); } catch (e) { msg.textContent = e.message; } } }, "Save"),
    FIREBASE_CONFIG ? h("button", { class: "btn", onclick: async () => { await DB.sendReset(u.email); toast("Password reset email sent"); } }, "Email me a password reset") : null, msg)));
 }
 
