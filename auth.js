@@ -103,7 +103,7 @@ async function loadAll() {
 async function ensureLookup() {
  if (!state.maxD || !perm("details") || state.lk || state.lkLoading) return;
  state.lkLoading = true; render();
- try { const days = periodDays(30), all = []; for (const c of visibleCountries()) all.push(...(await DB.loadLookup(c.id, days))); state.lk = all; state.lkIdx = new Map(); for (const r of all) { const a = state.lkIdx.get(r.epc); if (a) a.push(r); else state.lkIdx.set(r.epc, [r]); } }
+ try { const days = periodDays(30), all = []; for (const c of visibleCountries()) { const part = await DB.loadLookup(c.id, days); for (const x of part) all.push(x); } state.lk = all; state.lkIdx = new Map(); for (const r of all) { const a = state.lkIdx.get(r.epc); if (a) a.push(r); else state.lkIdx.set(r.epc, [r]); } }
   catch (e) { console.error(e); state.lkErr = (e && e.message) || String(e); }
  state.lkLoading = false; render();
 }
