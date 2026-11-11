@@ -38,8 +38,7 @@ function shell(body, a) {
    h("div", { class: "me" }, h("button", { class: "avbtn", "aria-haspopup": "menu", "aria-expanded": state.menu ? "true" : "false", onclick: (e) => { e.stopPropagation(); state.menu = !state.menu; render(); } }, avatarEl(me, "sm"), h("span", { text: (me.name || me.email || "").split(" ")[0] })), menu)),
   h("div", { class: "herogrid" },
    h("div", null, h("div", { class: "eyebrow", text: "IORA Group · SG and MY · stores and ECM" }), h("h1", { text: headline }), h("p", { class: "lead", text: lead }),
-    m ? h("span", { class: "pillstat " + tone }, ico(tone === "good" ? "check" : "alert"), tone === "good" ? "In good shape" : tone === "warn" ? "A few things to chase" : "Needs a closer look") : null),
-   h("div", { class: "heroart", html: HERO_ART }))));
+    m ? h("span", { class: "pillstat " + tone }, ico(tone === "good" ? "check" : "alert"), tone === "good" ? "In good shape" : tone === "warn" ? "A few things to chase" : "Needs a closer look") : null))));
  const nav = h("div", { class: "wrap floater" }, h("div", { class: "navcard" },
   state.view === "settings" ? h("div", { class: "tabs" }, h("button", { class: "tab", style: "background:var(--card2)", onclick: () => go("overview") }, ico("chev", "flip"), "Back"), settingsNav()) :
   h("div", { class: "tabs", role: "tablist" }, TABS.map(([id, label, ic]) => h("button", { class: "tab", role: "tab", "aria-selected": state.view === id ? "true" : "false", onclick: () => go(id) }, ico(ic), label, id === "list" && m && m.issues ? h("span", { class: "badge", text: nf(m.issues) }) : null))),

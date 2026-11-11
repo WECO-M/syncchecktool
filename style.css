@@ -54,7 +54,7 @@ svg.ico{width:1.25em;height:1.25em;flex:none;vertical-align:-.22em}
 .pillstat.good{background:rgba(74,222,128,.18);border:1px solid rgba(74,222,128,.5)}
 .pillstat.warn{background:rgba(251,191,36,.18);border:1px solid rgba(251,191,36,.55)}
 .pillstat.bad{background:rgba(248,113,113,.2);border:1px solid rgba(248,113,113,.6)}
-.hero.compact .herogrid{grid-template-columns:1fr}.hero.compact .heroart{display:none}.hero.compact{padding-bottom:70px}.hero.compact h1{font-size:clamp(28px,3.4vw,38px)}.hero.compact p.lead{margin-bottom:0}
+.hero{padding-bottom:66px}.herogrid{grid-template-columns:1fr;padding:0 0 4px}.hero h1{font-size:clamp(28px,3.4vw,38px);margin:6px 0 8px}.hero p.lead{margin:0 0 14px;font-size:16px}.util{padding:12px 0 18px}
 .heroart{width:100%;max-width:520px;justify-self:end}
 .heroart svg{width:100%;height:auto;display:block}
 .dash{stroke-dasharray:7 7;animation:flow 1.4s linear infinite}
@@ -62,7 +62,7 @@ svg.ico{width:1.25em;height:1.25em;flex:none;vertical-align:-.22em}
 .pulse{animation:pulse 2.4s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
 @keyframes pulse{50%{transform:scale(1.08)}}
 /* ---------- nav + filters ---------- */
-.floater{margin-top:-58px;position:relative;z-index:5}
+.floater{margin-top:-46px;position:relative;z-index:5}
 .navcard{background:var(--card);border-radius:18px;box-shadow:var(--shadow);border:1px solid var(--line);padding:10px 12px}
 .tabs{display:flex;gap:4px;flex-wrap:wrap}
 .tab{display:flex;align-items:center;gap:9px;padding:11px 18px;border-radius:12px;border:0;background:transparent;font-weight:600;font-size:15.5px;color:var(--ink2)}
