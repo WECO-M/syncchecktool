@@ -121,7 +121,7 @@ function rowVisible(r) {
 /* ---------- periods, aggregation ---------- */
 function periodDays(n) { const out = []; const end = pdate(state.maxD); for (let i = n - 1; i >= 0; i--) { const d = new Date(end); d.setUTCDate(d.getUTCDate() - i); out.push(iso(d)); } return out; }
 function makePred(force, incGap) {
- const days = new Set(periodDays(state.period));
+ const days = new Set(periodDays((force && force.days) || state.period));
  const f = Object.assign({ cc: state.cc, br: state.br, ch: state.ch, store: state.store }, force || {});
  const skip = state.exGap && !incGap;
  return (r) => days.has(r.d) && !(skip && GAPSET.has(r.d)) && rowVisible(r) && (!f.cc || r.cc === f.cc) && (!f.ch || r.ch === f.ch) && (!f.store || r.store === f.store) && (!f.br || storeInfo(r.store).brand === f.br);
@@ -145,8 +145,8 @@ function metrics(by) {
  return { sales, resolved, deducted, rate: resolved ? pct(deducted, resolved) : 100, issues: ISSUES.reduce((a, k) => a + g(by, k), 0) };
 }
 /* a "gap day": every store together has a big share of POS EPC sales missing in SWIMS (feed problem, not a store problem) */
-function gapDays() {
- const days = new Set(periodDays(state.period)); const per = {};
+function gapDays(n) {
+ const days = new Set(periodDays(n || state.period)); const per = {};
  for (const r of state.sum) { if (!days.has(r.d) || !rowVisible(r)) continue; const x = (per[r.d] = per[r.d] || {}); x[r.st] = (x[r.st] || 0) + r.n; }
  const min = +state.settings.gapMinLines || 300, share = +state.settings.gapShare || 0.25; const out = [];
  for (const d of Object.keys(per)) { const x = per[d]; const lines = g(x, "OK") + g(x, "DUPLICATE") + g(x, "NOT_DEDUCTED") + g(x, "TXN_MISMATCH"); const miss = g(x, "NOT_DEDUCTED") + g(x, "TXN_MISMATCH"); if (lines >= min && miss / lines >= share) out.push({ d, lines, miss, share: miss / lines }); }

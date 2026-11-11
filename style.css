@@ -142,6 +142,10 @@ main{padding:6px 0 60px}
 .bcard{border:1.5px solid var(--line);border-radius:18px;padding:18px;background:var(--card);text-align:left;display:block;width:100%;box-shadow:var(--shadow)}
 .bcard:hover{border-color:var(--ink)}
 .bhead{display:flex;align-items:center;gap:12px}
+.bcard{display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;text-align:left}
+.cardfilter{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:-4px 0 14px;padding:10px 12px;background:var(--card2);border:1px solid var(--line);border-radius:12px}
+.cardfilter select{height:34px;min-width:0;font-size:13.5px;padding:0 8px}
+.linkbtn{border:0;background:none;color:var(--brand);font-weight:600;text-decoration:underline;padding:0 6px}
 .mono-badge{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font:700 16px/1 var(--fnum);background:var(--ink);color:var(--card);letter-spacing:.5px;flex:none}
 .bcard .big{font:600 34px/1 var(--fnum);margin-top:14px}
 .bcard .big small{font-size:18px;color:var(--muted)}

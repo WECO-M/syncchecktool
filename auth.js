@@ -92,7 +92,7 @@ async function loadAll() {
   if (!meta) { state.maxD = null; render(); hideBoot(); return; }
   state.maxD = meta.posMaxDate;
   for (const c of visibleCountries()) state.sum.push(...(await DB.loadSummary(c.id)));
-  buildStoreIndex(); GAPSET = new Set(gapDays().map((x) => x.d));
+  buildStoreIndex(); GAPSET = new Set(gapDays(30).map((x) => x.d));
  } catch (e) { console.error(e); state.error = (e && e.message) || String(e); }
  document.body.classList.remove("loading");
  render(); hideBoot();

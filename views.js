@@ -2,7 +2,7 @@
 /* IORA Group · SyncCheck — page shell and views */
 const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], ["stores", "Stores", "store"], ["ecm", "ECM", "globe"], ["guide", "How it works", "book"]];
 const rateClass = (x) => (x >= 99 ? "g" : x >= 97 ? "w" : "b");
-const scopeText = () => { const d = periodDays(state.period); return fday(d[0]) + " – " + fday(d[d.length - 1]); };
+const scopeText = (n) => { const d = periodDays(n || state.period); return fday(d[0]) + " – " + fday(d[d.length - 1]); };
 function vendorOf(k) { return VENDOR[(STATUS[k] || {}).who] || ""; }
 
 /* ---------- shell ---------- */
@@ -139,14 +139,30 @@ function tableView(head, rows) {
   h("thead", null, h("tr", null, head.map((x, i) => h("th", { class: i ? "n" : "", text: x })))),
   h("tbody", null, rows.map((r) => h("tr", null, r.map((c, i) => h("td", { class: i ? "n" : "", text: c })))))));
 }
-function chartCard(title, sub, makeChart, tableHead, tableRows, key) {
- const showTable = state.chartTable;
- return h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: title }), h("div", { class: "sub", text: sub })), h("button", { class: "btn sm sp", onclick: () => { state.chartTable = !state.chartTable; render(); } }, showTable ? "Show chart" : "Show table")), showTable ? tableView(tableHead, tableRows) : makeChart());
+/* per-box filters: each box on the Overview can narrow itself by country, channel, brand and period */
+const CF = {};
+function cf(key) { return CF[key] || (CF[key] = { cc: "", ch: "", br: "", days: 0 }); }
+function cfForce(key, opts) { const f = cf(key); const o = {}; if (f.cc) o.cc = f.cc; if (f.ch) o.ch = f.ch; if (f.br && !(opts && opts.noBrand)) o.br = f.br; if (f.days) o.days = f.days; return o; }
+const cfDays = (key) => cf(key).days || state.period;
+function cardFilter(key, opts) {
+ const f = cf(key); const any = f.cc || f.ch || f.br || f.days;
+ const sel = (label, val, options, on) => h("select", { "aria-label": label, onchange: (e) => { on(e.target.value); render(); } }, options.map((o) => h("option", { value: o[0], selected: String(o[0]) === String(val) }, o[1])));
+ const brandsShown = BRANDS.filter((b) => !(state.settings.hiddenBrands || []).includes(b.id) && canSeeBrand(b.id));
+ return h("div", { class: "cardfilter" },
+  visibleCountries().length > 1 ? sel("Country", f.cc, [["", "All countries"]].concat(visibleCountries().map((c) => [c.id, c.name])), (v) => { f.cc = v; }) : null,
+  sel("Channel", f.ch, [["", "All channels"], ["Store", "Stores"], ["ECM", "ECM"]], (v) => { f.ch = v; }),
+  opts && opts.noBrand ? null : sel("Brand", f.br, [["", "All brands"]].concat(brandsShown.map((b) => [b.id, b.label])), (v) => { f.br = v; }),
+  sel("Period", f.days, [[0, "Same period as above"], [7, "7 days"], [14, "14 days"], [30, "30 days"]], (v) => { f.days = +v; }),
+  any ? h("button", { class: "linkbtn", onclick: () => { CF[key] = { cc: "", ch: "", br: "", days: 0 }; render(); } }, "Reset this box") : null);
 }
-function storeBarsCard(a, n) {
+function chartCard(title, sub, makeChart, tableHead, tableRows, key, filter) {
+ const showTable = state.chartTable;
+ return h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: title }), h("div", { class: "sub", text: sub })), h("button", { class: "btn sm sp", onclick: () => { state.chartTable = !state.chartTable; render(); } }, showTable ? "Show chart" : "Show table")), filter || null, showTable ? tableView(tableHead, tableRows) : makeChart());
+}
+function storeBarsCard(a, n, filterKey) {
  const rows = Object.keys(a.store).map((k) => ({ k, t: ISSUES.reduce((s, i) => s + g(a.store[k].st, i), 0), st: a.store[k].st })).filter((r) => r.t > 0).sort((p, q) => q.t - p.t).slice(0, n);
  const mx = Math.max(1, ...rows.map((r) => r.t));
- const card = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "Stores with the most issues" }), h("div", { class: "sub", text: "Top " + rows.length + " in this view" })), h("button", { class: "btn sm sp", onclick: () => go("stores") }, "All stores")));
+ const card = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "Stores with the most issues" }), h("div", { class: "sub", text: "Top " + rows.length + " in this view" })), h("button", { class: "btn sm sp", onclick: () => go("stores") }, "All stores")), filterKey ? cardFilter(filterKey) : null);
  if (!rows.length) { card.append(h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("div", { text: "No issues in this view." }))); return card; }
  const box = h("div", { class: "sbars" });
  for (const r of rows) {
@@ -158,14 +174,15 @@ function storeBarsCard(a, n) {
 }
 
 /* ---------- Overview ---------- */
-function healthCards(a) {
- const m = metrics(a.by); const gd = gapDays(); const mp = missingPosStores();
+function healthCards(a, fkey) {
+ const ah = fkey ? aggregate(cfForce(fkey)) : a; const hdays = fkey ? cfDays(fkey) : state.period;
+ const m = metrics(ah.by); const gd = gapDays(); const mp = missingPosStores();
  const sw = g(a.by, "NOT_DEDUCTED") + g(a.by, "TXN_MISMATCH") + g(a.by, "DUPLICATE") + g(a.by, "RETURN_MISSING"), po = g(a.by, "SWIMS_ONLY");
  const parts = [["OK", "Deducted correctly", "var(--good)"], ["NOT_DEDUCTED", "Not deducted", "var(--s1)"], ["TXN_MISMATCH", "Other transaction", "var(--s2)"], ["DUPLICATE", "Duplicate", "var(--s3)"], ["PENDING", "Pending", "var(--pend)"]];
- const tot = parts.reduce((s, p) => s + g(a.by, p[0]), 0) || 1;
- const health = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "How POS sales ended up in SWIMS" }), h("div", { class: "sub", text: nf(m.sales) + " POS EPC sales · " + scopeText() }))),
-  h("div", { class: "health" }, h("div", { class: "donut" }, donut(a.by), h("div", { class: "mid" }, h("b", { text: fp(m.rate) + "%" }), h("span", { text: "deducted" }))),
-   h("div", { class: "lg" }, parts.filter((p) => g(a.by, p[0])).map((p) => h("div", { class: "row" }, h("i", { style: "background:" + p[2] }), p[1], h("b", { text: nf(g(a.by, p[0])) }), h("small", { text: ((g(a.by, p[0]) / tot) * 100).toFixed(1) + "%" }))))));
+ const tot = parts.reduce((s, p) => s + g(ah.by, p[0]), 0) || 1;
+ const health = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "How POS sales ended up in SWIMS" }), h("div", { class: "sub", text: nf(m.sales) + " POS EPC sales · " + scopeText(hdays) }))), fkey ? cardFilter(fkey) : null,
+  h("div", { class: "health" }, h("div", { class: "donut" }, donut(ah.by), h("div", { class: "mid" }, h("b", { text: fp(m.rate) + "%" }), h("span", { text: "deducted" }))),
+   h("div", { class: "lg" }, parts.filter((p) => g(ah.by, p[0])).map((p) => h("div", { class: "row" }, h("i", { style: "background:" + p[2] }), p[1], h("b", { text: nf(g(ah.by, p[0])) }), h("small", { text: ((g(ah.by, p[0]) / tot) * 100).toFixed(1) + "%" }))))));
  const ask = (icon, color, n, label, sub, click) => h("button", { class: "ask" + (n ? "" : " zero"), style: "text-align:left", onclick: click }, h("div", { class: "ib", style: "background:" + color }, ico(icon)), h("div", null, h("b", { text: nf(n) }), h("span", { text: label })), ico("chev"));
  const asks = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "Who to ask" }), h("div", { class: "sub", text: "Open the list for each vendor, export it and send the note" }))),
   h("div", { class: "asks" },
@@ -188,21 +205,23 @@ function brandCards(a) {
   const tot = (m.sales || 1);
   const meter = h("div", { class: "meter", "aria-hidden": "true" }, h("i", { style: "width:" + pct(g(o.by, "OK") + g(o.by, "DUPLICATE"), tot) + "%;background:var(--good)" }), ISSUES.map((k) => g(o.by, k) ? h("i", { style: "width:" + Math.max(0.6, pct(g(o.by, k), tot)) + "%;background:var(" + STATUS[k].v + ")" }) : null));
   return h("button", { class: "bcard", onclick: () => { state.br = b.id; go("stores"); } },
-   h("div", { class: "bhead" }, h("div", { class: "mono-badge", text: b.mono }), h("div", null, h("b", { text: b.label }), h("div", { class: "muted", style: "font-size:13px", text: Object.keys(o.stores).length + " stores" }))),
+   h("div", { class: "bhead" }, h("div", { class: "mono-badge", text: b.mono }), h("div", null, h("b", { text: b.label }), h("div", { class: "muted", style: "font-size:13px", text: Object.keys(o.stores).length + (Object.keys(o.stores).length === 1 ? " store" : " stores") }))),
    h("div", { class: "big" }, fp(m.rate), h("small", { text: "% deducted" })), meter,
    h("div", { class: "bstats" }, h("span", null, h("b", { text: nf(m.issues) }), " issues"), h("span", null, h("b", { text: nf(m.sales) }), " POS EPC sales"), worst && worst[1] ? h("span", null, "Most issues: ", h("b", { text: worst[0] })) : null));
  });
  if (!cards.length) return null;
- return h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "By brand" }), h("div", { class: "sub", text: "Each store counts under its own brand. Click a brand to see its stores." }))), h("div", { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px" }, cards));
+ return h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "By brand" }), h("div", { class: "sub", text: "Each store counts under its own brand. Click a brand to see its stores." }))), cardFilter("brands", { noBrand: true }), h("div", { style: "display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px" }, cards));
 }
 function viewOverview(a) {
- const days = periodDays(state.period); const full = aggregate(null, true); const gset = new Set(gapDays().map((x) => x.d));
- const mrate = (d) => { const x = full.day[d] || {}; const r = g(x, "OK") + g(x, "DUPLICATE") + g(x, "NOT_DEDUCTED") + g(x, "TXN_MISMATCH"); return r ? (pct(g(x, "OK") + g(x, "DUPLICATE"), r)).toFixed(1) + "%" : "–"; };
- return [healthCards(a), kpiRow(a),
+ const rDays = periodDays(cfDays("rate")), iDays = periodDays(cfDays("issues"));
+ const rFull = aggregate(cfForce("rate"), true), iFull = aggregate(cfForce("issues"), true);
+ const rGap = new Set(gapDays(cfDays("rate")).map((x) => x.d)), iGap = new Set(gapDays(cfDays("issues")).map((x) => x.d));
+ const mrate = (d) => { const x = rFull.day[d] || {}; const r = g(x, "OK") + g(x, "DUPLICATE") + g(x, "NOT_DEDUCTED") + g(x, "TXN_MISMATCH"); return r ? (pct(g(x, "OK") + g(x, "DUPLICATE"), r)).toFixed(1) + "%" : "–"; };
+ return [healthCards(a, "health"), kpiRow(a),
   h("div", { class: "grid2" },
-   chartCard("Deduction rate by day", "Share of POS EPC sales that SWIMS deducted. Shaded days are possible SWIMS data gaps.", () => h("div", null, rateChart(full, days, gset)), ["Day", "Deducted"], days.map((d) => [fday(d), mrate(d)])),
-   chartCard("Issues per day", "Flagged EPCs by the day of the POS sale", () => h("div", null, stackChart(full, days, gset), legendOf(ISSUES)), ["Day"].concat(ISSUES.map((k) => STATUS[k].short)), days.map((d) => [fday(d)].concat(ISSUES.map((k) => nf(g(full.day[d], k))))))),
-  brandCards(a), storeBarsCard(a, 10)];
+   chartCard("Deduction rate by day", "Share of POS EPC sales that SWIMS deducted. Shaded days are possible SWIMS data gaps.", () => h("div", null, rateChart(rFull, rDays, rGap)), ["Day", "Deducted"], rDays.map((d) => [fday(d), mrate(d)]), "rate", cardFilter("rate")),
+   chartCard("Issues per day", "Flagged EPCs by the day of the POS sale", () => h("div", null, stackChart(iFull, iDays, iGap), legendOf(ISSUES)), ["Day"].concat(ISSUES.map((k) => STATUS[k].short)), iDays.map((d) => [fday(d)].concat(ISSUES.map((k) => nf(g(iFull.day[d], k))))), "issues", cardFilter("issues"))),
+  brandCards(aggregate(cfForce("brands", { noBrand: true }))), storeBarsCard(aggregate(cfForce("stores")), 10, "stores")];
 }
 function viewECM() {
  const a = aggregate({ ch: "ECM", store: "" }); const full = aggregate({ ch: "ECM", store: "" }, true); const days = periodDays(state.period); const gset = new Set(gapDays().map((x) => x.d));

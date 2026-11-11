@@ -182,7 +182,7 @@ function openStoreEditor(s) {
   const c = code.value.trim().toUpperCase(); if (!/^[A-Z0-9]{2,10}$/.test(c)) { err.textContent = "Store code: 2 to 10 letters or digits."; return; }
   if (isNew && state.stores[c] && Object.keys(state.storeDocs).includes(c)) { err.textContent = "That store already exists. Edit it from the list."; return; }
   const doc = { code: c, name: name.value.trim() || c, country: country.value, brand: brand.value, channel: channel.value, active: swOn(open), closedOn: swOn(open) ? null : (closedOn.value || null), note: note.value.trim() };
-  try { await DB.saveStore(doc); state.storeDocs[c] = doc; buildStoreIndex(); GAPSET = new Set(gapDays().map((x) => x.d)); closeDrawer(); toast("Store " + c + " saved"); render(); } catch (e) { err.textContent = (e && e.message) || String(e); }
+  try { await DB.saveStore(doc); state.storeDocs[c] = doc; buildStoreIndex(); GAPSET = new Set(gapDays(30).map((x) => x.d)); closeDrawer(); toast("Store " + c + " saved"); render(); } catch (e) { err.textContent = (e && e.message) || String(e); }
  }
  openDrawer([h("div", { class: "eyebrow muted", text: isNew ? "New store" : "Edit store" }), h("h3", { text: isNew ? "Add a store" : s.code + (s.name !== s.code ? " · " + s.name : "") }), h("div", { class: "dsub", text: "Changes are saved to the shared store list and written to the activity log." }),
   h("div", { class: "form" }, h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Store code"), code), h("label", { class: "field" }, h("span", null, "Name"), name)),
@@ -201,7 +201,7 @@ function settingsRules(body) {
   h("div", { class: "field" }, h("span", null, "Hide these brands everywhere"), h("div", { class: "brandrow" }, BRANDS.map((b) => h("label", { class: "chk" }, h("input", { type: "checkbox", checked: hid.has(b.id), onchange: (e) => { if (e.target.checked) hid.add(b.id); else hid.delete(b.id); } }), b.label))), h("span", { class: "hint", text: "Hidden brands stay in the data, so they can be shown again at any time." })),
   h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Data gap when this % of a day is missing"), gap), h("label", { class: "field" }, h("span", null, "…and the day has at least this many POS EPC sales"), minl)),
   h("div", { class: "row" }, signup, "Let people create their own account (they wait for approval)"),
-  h("div", { class: "row" }, h("button", { class: "btn pri", onclick: async () => { const ns = { ...state.settings, hiddenBrands: [...hid], gapShare: Math.min(0.9, Math.max(0.05, (+gap.value || 25) / 100)), gapMinLines: Math.max(50, +minl.value || 300), allowSelfSignup: swOn(signup) }; try { await DB.saveSettings(ns); state.settings = ns; GAPSET = new Set(gapDays().map((x) => x.d)); toast("Rules saved"); render(); } catch (e) { msg.textContent = e.message; } } }, "Save rules"), msg)));
+  h("div", { class: "row" }, h("button", { class: "btn pri", onclick: async () => { const ns = { ...state.settings, hiddenBrands: [...hid], gapShare: Math.min(0.9, Math.max(0.05, (+gap.value || 25) / 100)), gapMinLines: Math.max(50, +minl.value || 300), allowSelfSignup: swOn(signup) }; try { await DB.saveSettings(ns); state.settings = ns; GAPSET = new Set(gapDays(30).map((x) => x.d)); toast("Rules saved"); render(); } catch (e) { msg.textContent = e.message; } } }, "Save rules"), msg)));
 }
 
 /* ---- appearance ---- */
