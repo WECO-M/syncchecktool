@@ -22,17 +22,17 @@ function settingsBody() {
 
 /* ---- profile ---- */
 function settingsProfile(body) {
- const u = state.user || {}; const name = h("input", { class: "inp", type: "text", value: u.name || "" }); const msg = h("span", { class: "muted" });
+ const u = state.user || {}; const lockedAcc = isOwner(u) && !!FIREBASE_CONFIG; const name = h("input", { class: "inp", type: "text", value: u.name || "", disabled: lockedAcc }); const msg = h("span", { class: "muted" });
  let pick = isOwner(u) && (!u.color || u.color === "special") ? "special" : (AV_COLORS.includes(u.color) ? u.color : avatarBg(u));
  const opts = (isOwner(u) ? [["special", AV_SPECIAL]] : []).concat(AV_COLORS.map((c) => [c, c]));
  const prev = h("div", { class: "av big", style: { background: pick === "special" ? AV_SPECIAL : pick, color: pick === "special" ? "#3b2a00" : "#fff" } }, initialsOf(u));
- const sws = h("div", { class: "swatches" }, opts.map(([key, css]) => h("button", { type: "button", class: "sw" + (key === pick ? " on" : ""), "data-k": key, style: { background: css }, "aria-label": "Colour " + key, onclick: () => { pick = key; sws.querySelectorAll(".sw").forEach((b) => b.classList.toggle("on", b.dataset.k === key)); prev.style.background = key === "special" ? AV_SPECIAL : key; prev.style.color = key === "special" ? "#3b2a00" : "#fff"; } })));
+ const sws = h("div", { class: "swatches" }, opts.map(([key, css]) => h("button", { type: "button", class: "sw" + (key === pick ? " on" : ""), "data-k": key, disabled: lockedAcc, style: { background: css }, "aria-label": "Colour " + key, onclick: () => { pick = key; sws.querySelectorAll(".sw").forEach((b) => b.classList.toggle("on", b.dataset.k === key)); prev.style.background = key === "special" ? AV_SPECIAL : key; prev.style.color = key === "special" ? "#3b2a00" : "#fff"; } })));
  const ro = (v) => h("input", { class: "inp", type: "text", value: v, disabled: true });
- body.append(secHead("My profile", "How you appear to colleagues."), h("div", { class: "form", style: "max-width:460px" },
+ body.append(secHead("My profile", "How you appear to colleagues."), lockedAcc ? h("div", { class: "banner info", style: "margin-bottom:16px;max-width:460px" }, h("div", { class: "ic" }, ico("lock")), h("div", null, h("b", { text: "Owner account, locked. " }), "Its name, colour, role and access cannot be edited by anyone.")) : null, h("div", { class: "form", style: "max-width:460px" },
   h("div", { class: "row", style: "gap:18px" }, prev, h("div", null, h("div", { class: "field" }, h("span", null, "Profile colour")), sws)),
   h("label", { class: "field" }, h("span", null, "Name"), name), h("label", { class: "field" }, h("span", null, "Email"), ro(u.email || "")), h("label", { class: "field" }, h("span", null, "Role"), ro(roleName(u.role))),
   h("label", { class: "field" }, h("span", null, "Access"), ro(isAdminUser() ? "All countries, brands and stores" : (u.countries || []).join(" + ") + " · " + (u.allBrands === false ? (u.brands || []).map((b) => brandInfo(b).label).join(", ") : "all brands") + " · " + (u.allStores === false ? (u.stores || []).length + " stores" : "all stores"))),
-  h("div", { class: "row" }, h("button", { class: "btn pri", onclick: async () => { try { await DB.updateUser(u.uid, { name: name.value.trim(), color: pick }); u.name = name.value.trim(); u.color = pick; toast("Saved"); render(); } catch (e) { msg.textContent = e.message; } } }, "Save"),
+  h("div", { class: "row" }, h("button", { class: "btn pri", disabled: lockedAcc, onclick: async () => { try { await DB.updateUser(u.uid, { name: name.value.trim(), color: pick }); u.name = name.value.trim(); u.color = pick; toast("Saved"); render(); } catch (e) { msg.textContent = e.message; } } }, "Save"),
    FIREBASE_CONFIG ? h("button", { class: "btn", onclick: async () => { await DB.sendReset(u.email); toast("Password reset email sent"); } }, "Email me a password reset") : null, msg)));
 }
 
@@ -48,7 +48,7 @@ function settingsUsers(body) {
    const ri = roleInfo(u.role); const cls = u.role === "admin" ? "admin" : (!u.role || u.role === "pending" || !ri) ? "pending" : (ri.active === false ? "off" : "");
    const access = u.role === "admin" ? "Everything" : [(u.countries || []).join(" + ") || "no country", brandAccess(u), u.allStores === false ? (u.stores || []).length + " stores" : "all stores"].join(" · ");
    return h("tr", null, h("td", { text: u.name || "–" }), h("td", { class: "mono", text: u.email }), h("td", null, h("span", { class: "rolepill " + cls, text: roleName(u.role) })), h("td", { text: access }),
-    h("td", null, u.locked ? h("span", { class: "cpill crit", text: "Locked" }) : u.active === false ? h("span", { class: "cpill off", text: "Inactive" }) : h("span", { class: "cpill good", text: "Active" })), h("td", null, h("button", { class: "btn sm", onclick: () => openUserEditor(u) }, ico("edit"), "Edit")));
+    h("td", null, u.locked ? h("span", { class: "cpill crit", text: "Locked" }) : u.active === false ? h("span", { class: "cpill off", text: "Inactive" }) : h("span", { class: "cpill good", text: "Active" })), h("td", null, isOwner(u) && FIREBASE_CONFIG ? h("span", { class: "cpill off", style: "display:inline-flex;gap:6px;align-items:center" }, ico("lock"), "Locked") : h("button", { class: "btn sm", onclick: () => openUserEditor(u) }, ico("edit"), "Edit")));
   }));
   if (!users.length) tb.append(h("tr", null, h("td", { colspan: 6, class: "muted", text: "No users yet." })));
  }).catch((e) => tb.replaceChildren(h("tr", null, h("td", { colspan: 6, class: "err", text: "Could not load users: " + e.message }))));
@@ -74,8 +74,8 @@ function storePicker(selected, countries, brands) {
  draw(); return { el: wrap, value: () => [...set], redraw: draw };
 }
 function openUserEditor(u) {
- const isNew = !u; const me = state.user || {}; const isSelf = u && u.uid === me.uid; const ownerRow = !isNew && isOwner(u); const guarded = !isNew && !isSelf && ((u.role === "admin" && !isAdminUser()) || ownerRow);
- const email = h("input", { class: "inp", type: "email", value: u ? u.email : "", disabled: !isNew, placeholder: "name@iora.com.my" }); const name = h("input", { class: "inp", type: "text", value: u ? u.name || "" : "" });
+ const isNew = !u; const me = state.user || {}; const isSelf = u && u.uid === me.uid; const ownerRow = !isNew && isOwner(u); const guarded = ownerRow || (!isNew && !isSelf && u.role === "admin" && !isAdminUser());
+ const email = h("input", { class: "inp", type: "email", value: u ? u.email : "", disabled: !isNew, placeholder: "name@iora.com.my" }); const name = h("input", { class: "inp", type: "text", value: u ? u.name || "" : "", disabled: ownerRow });
  const pw = h("input", { class: "inp", type: "text", value: isNew ? genPassword() : "", autocomplete: "off" });
  const roleSel = h("select", { disabled: isSelf || guarded }, roleOptions(u ? u.role : null).map(([v, t]) => h("option", { value: v, selected: (u ? u.role : "viewer") === v }, t)));
  const cSet = new Set(u ? u.countries || [] : ["SG"]); const bSet = new Set(u ? u.brands || [] : []);
