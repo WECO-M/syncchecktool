@@ -142,12 +142,32 @@ function openRoleEditor(id, data) {
 
 /* ---- stores (brand is per store) ---- */
 function settingsStores(body) {
- body.append(secHead("Stores", "Name, brand, country and whether a store is open. Each store is listed under its brand on the Stores page.", h("button", { class: "btn pri", onclick: () => openStoreEditor(null) }, ico("plus"), "Add store")));
- const list = Object.values(state.stores).sort((a, b) => a.brand.localeCompare(b.brand) || a.code.localeCompare(b.code));
- body.append(h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, ["Code", "Name", "Brand", "Country", "Channel", "Status", ""].map((x) => h("th", { text: x })))),
-  h("tbody", null, list.map((s) => h("tr", null, h("td", null, h("b", { text: s.code })), h("td", { text: s.name !== s.code ? s.name : "" }), h("td", { text: brandInfo(s.brand).label }), h("td", { text: s.country }), h("td", { text: s.channel || "Store" }),
-   h("td", null, s.active === false ? h("span", { class: "cpill off", text: s.closedOn ? "Closed " + s.closedOn : "Closed" }) : (state.settings.hiddenBrands || []).includes(s.brand) ? h("span", { class: "cpill off", text: "Brand hidden" }) : h("span", { class: "cpill good", text: "Open" })),
-   h("td", null, h("button", { class: "btn sm", onclick: () => openStoreEditor(s) }, ico("edit"), "Edit"))))))));
+ const ui = (state.stUi = state.stUi || { cc: "", br: "", sort: "brand", dir: 1, q: "" });
+ body.append(secHead("Stores", "Name, brand, country and whether a store is open. Filter by country or brand, and click a heading to sort.", h("button", { class: "btn pri", onclick: () => openStoreEditor(null) }, ico("plus"), "Add store")));
+ const all = Object.values(state.stores); const bIdx = (b) => { const i = BRANDS.findIndex((x) => x.id === b); return i < 0 ? 99 : i; };
+ const statusOf = (s) => (s.active === false ? 2 : (state.settings.hiddenBrands || []).includes(s.brand) ? 1 : 0);
+ let list = all.filter((s) => (!ui.cc || s.country === ui.cc) && (!ui.br || s.brand === ui.br) && (!ui.q || (s.code + " " + s.name).toLowerCase().includes(ui.q.toLowerCase())));
+ const cmpCode = (a, b) => a.code.localeCompare(b.code);
+ const cIdx = (s) => { const i = COUNTRIES.findIndex((c) => c.id === s.country); return i < 0 ? 99 : i; };
+ const keys = { brand: (a, b) => bIdx(a.brand) - bIdx(b.brand) || cIdx(a) - cIdx(b) || cmpCode(a, b), country: (a, b) => cIdx(a) - cIdx(b) || bIdx(a.brand) - bIdx(b.brand) || cmpCode(a, b), code: cmpCode, name: (a, b) => String(a.name).localeCompare(String(b.name)) || cmpCode(a, b), channel: (a, b) => String(a.channel).localeCompare(String(b.channel)) || cmpCode(a, b), status: (a, b) => statusOf(a) - statusOf(b) || cmpCode(a, b) };
+ list.sort((a, b) => keys[ui.sort](a, b) * ui.dir);
+ const chip = (label, on, click, n) => h("button", { class: "bchip", "aria-pressed": on ? "true" : "false", onclick: click }, label, n !== undefined ? h("em", { text: String(n) }) : null);
+ const cnt = (f) => all.filter(f).length;
+ body.append(h("div", { class: "filterrow", style: "border:0;margin:0 0 14px;padding:0" },
+  h("div", { class: "brandrow" }, chip("All countries", ui.cc === "", () => { ui.cc = ""; render(); }, cnt((s) => (!ui.br || s.brand === ui.br))), COUNTRIES.map((c) => chip(c.name, ui.cc === c.id, () => { ui.cc = c.id; render(); }, cnt((s) => s.country === c.id && (!ui.br || s.brand === ui.br))))),
+  h("div", { class: "brandrow", style: "flex-basis:100%" }, chip("All brands", ui.br === "", () => { ui.br = ""; render(); }, cnt((s) => !ui.cc || s.country === ui.cc)), BRANDS.filter((b) => all.some((s) => s.brand === b.id)).map((b) => chip(b.label, ui.br === b.id, () => { ui.br = b.id; render(); }, cnt((s) => s.brand === b.id && (!ui.cc || s.country === ui.cc))))),
+  h("input", { class: "inp", type: "search", placeholder: "Search code or name", value: ui.q, style: "width:min(300px,100%)", "aria-label": "Search stores", oninput: (e) => { ui.q = e.target.value; const p = e.target.selectionStart; render(); const n = document.querySelector('input[aria-label="Search stores"]'); if (n) { n.focus(); n.setSelectionRange(p, p); } } })));
+ const cols = [["code", "Code"], ["name", "Name"], ["brand", "Brand"], ["country", "Country"], ["channel", "Channel"], ["status", "Status"]];
+ const th = cols.map(([k, t]) => h("th", { class: "sortable", tabindex: 0, text: t + (ui.sort === k ? (ui.dir < 0 ? " ▾" : " ▴") : ""), onclick: () => { if (ui.sort === k) ui.dir = -ui.dir; else { ui.sort = k; ui.dir = 1; } render(); }, onkeydown: (e) => { if (e.key === "Enter") e.target.click(); } }));
+ const row = (s) => h("tr", null, h("td", null, h("b", { text: s.code })), h("td", { text: s.name !== s.code ? s.name : "" }), h("td", { text: brandInfo(s.brand).label }), h("td", { text: s.country }), h("td", { text: s.channel || "Store" }),
+  h("td", null, s.active === false ? h("span", { class: "cpill off", text: s.closedOn ? "Closed " + s.closedOn : "Closed" }) : (state.settings.hiddenBrands || []).includes(s.brand) ? h("span", { class: "cpill off", text: "Brand hidden" }) : h("span", { class: "cpill good", text: "Open" })),
+  h("td", null, h("button", { class: "btn sm", onclick: () => openStoreEditor(s) }, ico("edit"), "Edit")));
+ const rows = []; let last = null;
+ for (const s of list) {
+  if (ui.sort === "brand" && s.brand !== last) { last = s.brand; const n = list.filter((x) => x.brand === s.brand).length; rows.push(h("tr", { class: "grouprow" }, h("td", { colspan: 7 }, brandInfo(s.brand).label + " · " + n + " store" + (n === 1 ? "" : "s") + (ui.cc ? "" : " (" + ["SG", "MY"].map((c) => c + " " + list.filter((x) => x.brand === s.brand && x.country === c).length).join(", ") + ")")))); }
+  rows.push(row(s));
+ }
+ body.append(h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, th, h("th"))), h("tbody", null, rows.length ? rows : h("tr", null, h("td", { colspan: 7, class: "muted", text: "No stores match." }))))));
 }
 function openStoreEditor(s) {
  if (!perm("manageStores")) return;
