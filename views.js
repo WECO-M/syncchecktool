@@ -4,9 +4,9 @@ const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], 
 const rateClass = (x) => (x >= 99 ? "g" : x >= 97 ? "w" : "b");
 const scopeText = (n) => { const d = periodDays(n || state.period); return fday(d[0]) + " – " + fday(d[d.length - 1]); };
 /* Hide/show button for any filter bar. Default: open on desktop, hidden on phones. Returns an array of nodes. */
-function fToggle(key, nodes) {
+function fToggle(key, nodes, extra) {
  state.fx = state.fx || {}; if (!(key in state.fx)) state.fx[key] = innerWidth > 760; const on = state.fx[key];
- return [h("div", { class: "ftoggle" }, h("button", { class: "btn sm", "aria-expanded": on ? "true" : "false", onclick: () => { state.fx[key] = !on; render(); } }, ico("sliders"), on ? "Hide filters" : "Show filters"))].concat(on ? nodes : []);
+ return [h("div", { class: "ftoggle" }, h("button", { class: "btn sm", "aria-expanded": on ? "true" : "false", onclick: () => { state.fx[key] = !on; render(); } }, ico("sliders"), on ? "Hide filters" : "Show filters" + (extra || "")))].concat(on ? nodes : []);
 }
 function vendorOf(k) { return VENDOR[(STATUS[k] || {}).who] || ""; }
 
@@ -165,12 +165,13 @@ function cardFilter(key, opts) {
  const f = cf(key); const any = f.cc || f.ch || f.br || f.days;
  const sel = (label, val, options, on) => h("select", { "aria-label": label, onchange: (e) => { on(e.target.value); render(); } }, options.map((o) => h("option", { value: o[0], selected: String(o[0]) === String(val) }, o[1])));
  const brandsShown = BRANDS.filter((b) => !(state.settings.hiddenBrands || []).includes(b.id) && canSeeBrand(b.id));
- return h("div", { class: "cardfilter" },
+ const n = [f.cc, f.ch, f.br, f.days].filter(Boolean).length;
+ return fToggle("cf_" + key, [h("div", { class: "cardfilter" },
   visibleCountries().length > 1 ? sel("Country", f.cc, [["", "All countries"]].concat(visibleCountries().map((c) => [c.id, c.name])), (v) => { f.cc = v; }) : null,
   sel("Channel", f.ch, [["", "All channels"], ["Store", "Stores"], ["ECM", "ECM"]], (v) => { f.ch = v; }),
   opts && opts.noBrand ? null : sel("Brand", f.br, [["", "All brands"]].concat(brandsShown.map((b) => [b.id, b.label])), (v) => { f.br = v; }),
   sel("Period", f.days, [[0, "Same period as above"], [7, "7 days"], [14, "14 days"], [30, "30 days"]], (v) => { f.days = +v; }),
-  any ? h("button", { class: "linkbtn", onclick: () => { CF[key] = { cc: "", ch: "", br: "", days: 0 }; render(); } }, "Reset this box") : null);
+  any ? h("button", { class: "linkbtn", onclick: () => { CF[key] = { cc: "", ch: "", br: "", days: 0 }; render(); } }, "Reset this box") : null)], n ? " (" + n + " on)" : "");
 }
 function chartCard(title, sub, makeChart, tableHead, tableRows, key, filter) {
  const showTable = state.chartTable;
