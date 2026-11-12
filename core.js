@@ -70,7 +70,7 @@ const STORE_BRAND_BY_LETTER = { A: "IORA", S: "SANS", T: "TRT", M: "MONOLOQ", J:
 const state = {
  user: null, settings: { ...DEFAULT_SETTINGS }, roles: {}, users: [], storeDocs: {}, stores: {},
  meta: null, sum: [], iss: [], issLoaded: new Set(), maxD: null,
- period: 14, cc: "", br: "", ch: "", store: "", view: "overview", cat: "", vendor: "", q: "", page: 0, exGap: true,
+ period: 14, cc: "", br: "", ch: "", store: "", view: "overview", cat: "", vendor: "", q: "", page: 0, exGap: true, fopen: false, bOpen: false,
  sort: "issues", dir: -1, settingsTab: "profile", menu: false, chartTable: false, loading: false, audit: null, auditUntil: 0,
 };
 let DB = null, auth = null, fsdb = null, GAPSET = new Set();

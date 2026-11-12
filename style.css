@@ -70,6 +70,8 @@ svg.ico{width:1.25em;height:1.25em;flex:none;vertical-align:-.22em}
 .tab[aria-selected="true"]{background:var(--ink);color:var(--card)}
 .tab .badge{background:var(--bad);color:#fff;border-radius:999px;font-size:12px;padding:1px 8px;font-weight:700}
 .tab[aria-selected="true"] .badge{background:var(--brand2);color:#fff}
+.ftoggle{display:flex;justify-content:flex-end;margin-top:8px}
+.morebtn{display:none}
 .filterrow{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:12px 6px 4px;border-top:1px solid var(--line)}
 .seg{display:inline-flex;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px}
 .seg button{border:0;background:transparent;padding:7px 14px;border-radius:9px;color:var(--ink2);font-weight:600;font-size:14px}
@@ -278,7 +280,7 @@ tr.grouprow td{background:var(--card2)!important;font-weight:700;font-size:13.5p
 body.loading main{opacity:.55}
 /* responsive */
 @media (max-width:1100px){.herogrid{grid-template-columns:1fr}.heroart{display:none}.gridhero,.grid3{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.auth{grid-template-columns:1fr}.auth .side{display:none}}
-@media (max-width:760px){.banner{flex-wrap:wrap}.banner .btn{margin-left:48px}.wrap{padding:0 14px}.grid2,.steps,.two{grid-template-columns:1fr}.health{grid-template-columns:1fr;justify-items:center}.tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.tab{padding:10px 14px;white-space:nowrap}.hero h1{font-size:30px}.chips{display:none}.drawer{padding:20px}input,select,textarea{font-size:16px}.sb{grid-template-columns:50px 1fr 48px}}
+@media (max-width:760px){.banner .bd.clip{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.morebtn{display:inline-flex}.ftoggle{justify-content:stretch}.ftoggle .btn{width:100%;justify-content:center}.banner{flex-wrap:wrap}.banner .btn{margin-left:48px}.wrap{padding:0 14px}.grid2,.steps,.two{grid-template-columns:1fr}.health{grid-template-columns:1fr;justify-items:center}.tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.tab{padding:10px 14px;white-space:nowrap}.hero h1{font-size:30px}.chips{display:none}.drawer{padding:20px}input,select,textarea{font-size:16px}.sb{grid-template-columns:50px 1fr 48px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media print{.hero,.floater,.totop{display:none}}
 .sbar{position:relative;display:flex;align-items:center;margin-bottom:6px}

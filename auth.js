@@ -185,6 +185,7 @@ async function boot() {
  applyTheme();
  const t = safe.get("sc.period"); if (t === "7" || t === "14" || t === "30") state.period = +t;
  if (safe.get("sc.exgap") === "0") state.exGap = false;
+ { const f = safe.get("sc.fopen"); state.fopen = f === "1" ? true : f === "0" ? false : innerWidth > 760; }
  const hp = new URLSearchParams(location.hash.slice(1));
  if (["overview", "list", "stores", "ecm", "search", "guide", "settings"].includes(hp.get("view"))) state.view = hp.get("view");
  if (["7", "14", "30"].includes(hp.get("period"))) state.period = +hp.get("period");

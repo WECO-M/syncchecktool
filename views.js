@@ -3,12 +3,26 @@
 const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], ["stores", "Stores", "store"], ["ecm", "ECM", "globe"], ["search", "EPC search", "search"], ["guide", "How it works", "book"]];
 const rateClass = (x) => (x >= 99 ? "g" : x >= 97 ? "w" : "b");
 const scopeText = (n) => { const d = periodDays(n || state.period); return fday(d[0]) + " – " + fday(d[d.length - 1]); };
+/* Hide/show button for any filter bar. Default: open on desktop, hidden on phones. Returns an array of nodes. */
+function fToggle(key, nodes) {
+ state.fx = state.fx || {}; if (!(key in state.fx)) state.fx[key] = innerWidth > 760; const on = state.fx[key];
+ return [h("div", { class: "ftoggle" }, h("button", { class: "btn sm", "aria-expanded": on ? "true" : "false", onclick: () => { state.fx[key] = !on; render(); } }, ico("sliders"), on ? "Hide filters" : "Show filters"))].concat(on ? nodes : []);
+}
 function vendorOf(k) { return VENDOR[(STATUS[k] || {}).who] || ""; }
 
 /* ---------- shell ---------- */
 function render() {
  const root = $("root"); hideTip();
  if (!state.user) return;
+ const keepY = window.scrollY; // keep the reading position when a click re-renders (go() resets it on purpose)
+ const oldTabs = root.querySelector(".tabs"); const keepX = oldTabs ? oldTabs.scrollLeft : 0; // the tab bar scrolls sideways on phones; rebuilding it reset it to the first tab
+ try { renderInner(root); } finally {
+  if (window.scrollY !== keepY && keepY > 0) window.scrollTo(0, keepY);
+  const nt = root.querySelector(".tabs");
+  if (nt) { nt.scrollLeft = keepX; const on = nt.querySelector('[aria-selected="true"]'); if (on) { const l = on.offsetLeft - nt.offsetLeft; if (l < nt.scrollLeft || l + on.offsetWidth > nt.scrollLeft + nt.clientWidth) nt.scrollLeft = Math.max(0, l - 16); } }
+ }
+}
+function renderInner(root) {
  if (state.view === "settings") { root.replaceChildren(shell(settingsBody())); return; }
  if (!state.maxD) { root.replaceChildren(shell(h("div", { class: "card" }, h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("h3", { text: "No data yet" }), h("p", { text: DB && DB.demo ? "Run feed\\build_synccheck.ps1 to create the local data file." : "The daily job has not published any data yet. Ask the owner to run the SyncCheck feed." }))))); return; }
  const a = aggregate();
@@ -42,7 +56,9 @@ function shell(body, a) {
  const nav = h("div", { class: "wrap floater" }, h("div", { class: "navcard" },
   state.view === "settings" ? h("div", { class: "tabs" }, h("button", { class: "tab", style: "background:var(--card2)", onclick: () => go("overview") }, ico("chev", "flip"), "Back"), settingsNav()) :
   h("div", { class: "tabs", role: "tablist" }, TABS.map(([id, label, ic]) => h("button", { class: "tab", role: "tab", "aria-selected": state.view === id ? "true" : "false", onclick: () => go(id) }, ico(ic), label, id === "list" && m && m.issues ? h("span", { class: "badge", text: nf(m.issues) }) : null))),
-  state.view !== "settings" && state.view !== "search" && state.maxD ? filterRow() : null));
+  state.view !== "settings" && state.view !== "search" && state.maxD ? h("div", null,
+   h("div", { class: "ftoggle" }, h("button", { class: "btn sm", "aria-expanded": state.fopen ? "true" : "false", onclick: () => { state.fopen = !state.fopen; safe.set("sc.fopen", state.fopen ? "1" : "0"); render(); } }, ico("sliders"), state.fopen ? "Hide filters" : "Show filters" + ([state.cc, state.br, state.ch, state.store].filter(Boolean).length ? " (" + [state.cc, state.br, state.ch, state.store].filter(Boolean).length + " on)" : ""))),
+   state.fopen ? filterRow() : null) : null));
  const banners = state.view === "settings" || !state.maxD ? null : h("div", { class: "wrap banners" }, bannerEls(gd));
  return h("div", { onclick: () => { if (state.menu) { state.menu = false; render(); } } }, hero, nav, banners, h("main", null, h("div", { class: "wrap" }, body, h("div", { class: "foot" }, "IORA Group · Internal use only · Confidential. Source: BigQuery (POS sales with serial · SWIMS POS sale records). EPCs, transaction numbers, store codes and SKUs only; no customer data."))));
 }
@@ -70,7 +86,8 @@ function bannerEls(gd) {
  const mp = missingPosStores();
  if (mp.length) out.push(h("div", { class: "banner bad", role: "alert" }, h("div", { class: "ic" }, ico("db")), h("div", { style: "flex:1" }, h("b", { text: "No POS data for " + mp.length + " store" + (mp.length > 1 ? "s" : "") + ": " }), mp.map((x) => x.store + " (" + x.cc + ", " + nf(x.sw) + " EPCs in SWIMS)").join(", ") + ". SWIMS records sales for these stores but the POS data has none, so the POS feed may be missing. Ask the POS vendor first.")));
  if (gd.length) out.push(h("div", { class: "banner warn", role: "alert" }, h("div", { class: "ic" }, ico("gap")),
-  h("div", { style: "flex:1" }, h("b", { text: "Possible SWIMS data gap: " }), gd.map((x) => fday(x.d) + " (" + Math.round(x.share * 100) + "% missing)").join(", ") + ". Across all stores, a large share of POS sales on these days has no SWIMS record at all. That looks like missing SWIMS data, not store errors, so ask the SWIMS vendor to check these days first. " + (state.exGap ? "These days are left out of the numbers so they do not hide the real issues." : "These days are included in the numbers.")),
+  h("div", { class: "bd" + (state.bOpen ? "" : " clip"), style: "flex:1" }, h("b", { text: "Possible SWIMS data gap: " }), gd.map((x) => fday(x.d) + " (" + Math.round(x.share * 100) + "% missing)").join(", ") + ". Across all stores, a large share of POS sales on these days has no SWIMS record at all. That looks like missing SWIMS data, not store errors, so ask the SWIMS vendor to check these days first. " + (state.exGap ? "These days are left out of the numbers so they do not hide the real issues." : "These days are included in the numbers.")),
+  h("button", { class: "btn sm morebtn", onclick: () => { state.bOpen = !state.bOpen; render(); } }, state.bOpen ? "Show less" : "Read more"),
   h("button", { class: "btn sm", onclick: () => { state.exGap = !state.exGap; safe.set("sc.exgap", state.exGap ? "1" : "0"); state.page = 0; render(); } }, state.exGap ? "Include these days" : "Leave these days out")));
  if (state.error) out.push(h("div", { class: "banner bad", role: "alert" }, h("div", { class: "ic" }, ico("alert")), h("div", null, h("b", { text: "Could not load some data: " }), state.error)));
  return out;
@@ -266,8 +283,8 @@ function viewList() {
  const chips = h("div", { class: "brandrow", style: "margin-bottom:12px" }, h("button", { class: "bchip", "aria-pressed": !state.cat && !state.vendor ? "true" : "false", onclick: () => { state.cat = ""; state.vendor = ""; state.page = 0; render(); } }, "All issues"),
   ISSUES.map((k) => h("button", { class: "bchip", "aria-pressed": state.cat === k ? "true" : "false", onclick: () => { state.cat = state.cat === k ? "" : k; state.vendor = ""; state.page = 0; render(); } }, h("i", { style: "width:10px;height:10px;border-radius:3px;background:var(" + STATUS[k].v + ")" }), STATUS[k].short)));
  const card = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: title }), h("div", { class: "sub", text: (state.cat ? STATUS[state.cat].desc + " " : "") + nf(rows.length) + " EPCs in this view." })),
-  h("button", { class: "btn sp", onclick: () => download("SyncCheck_" + (state.cat || state.vendor || "all_issues") + "_" + state.maxD + ".csv", csvOf(rows)) }, ico("download"), "Export CSV"), h("button", { class: "btn pri", onclick: () => openVendorNote(rows) }, ico("msg"), "Note for vendor")), chips,
-  h("div", { style: "margin-bottom:12px" }, h("input", { class: "inp", type: "search", placeholder: "Search EPC, transaction or SKU", value: state.q, style: "width:min(420px,100%)", "aria-label": "Search", oninput: (e) => { state.q = e.target.value; state.page = 0; const p = e.target.selectionStart; render(); const n = document.querySelector('input[type="search"]'); if (n) { n.focus(); n.setSelectionRange(p, p); } } })));
+  h("button", { class: "btn sp", onclick: () => download("SyncCheck_" + (state.cat || state.vendor || "all_issues") + "_" + state.maxD + ".csv", csvOf(rows)) }, ico("download"), "Export CSV"), h("button", { class: "btn pri", onclick: () => openVendorNote(rows) }, ico("msg"), "Note for vendor")), fToggle("list", [chips,
+  h("div", { style: "margin-bottom:12px" }, h("input", { class: "inp", type: "search", placeholder: "Search EPC, transaction or SKU", value: state.q, style: "width:min(420px,100%)", "aria-label": "Search", oninput: (e) => { state.q = e.target.value; state.page = 0; const p = e.target.selectionStart; render(); const n = document.querySelector('input[type="search"]'); if (n) { n.focus(); n.setSelectionRange(p, p); } } }))]));
  if (!rows.length) { card.append(h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("div", { text: "Nothing to show for these filters." }))); return [card]; }
  const th = ["Issue", "Date", "Store", "Brand", "EPC", "POS txn", "SKU", "SWIMS shows"];
  card.append(h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, th.map((x) => h("th", { text: x })))), h("tbody", null, slice.map((r) => h("tr", { style: "cursor:pointer", onclick: () => openIssue(r) },
