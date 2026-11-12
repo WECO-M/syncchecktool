@@ -174,8 +174,8 @@ function cardFilter(key, opts) {
   any ? h("button", { class: "linkbtn", onclick: () => { CF[key] = { cc: "", ch: "", br: "", days: 0 }; render(); } }, "Reset this box") : null)], n ? " (" + n + " on)" : "");
 }
 function chartCard(title, sub, makeChart, tableHead, tableRows, key, filter) {
- const showTable = state.chartTable;
- return h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: title }), h("div", { class: "sub", text: sub })), h("button", { class: "btn sm sp", onclick: () => { state.chartTable = !state.chartTable; render(); } }, showTable ? "Show chart" : "Show table")), filter || null, showTable ? tableView(tableHead, tableRows) : makeChart());
+ const tk = key || title; state.ct = state.ct || {}; const showTable = !!state.ct[tk]; // each chart card has its own chart/table switch
+ return h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: title }), h("div", { class: "sub", text: sub })), h("button", { class: "btn sm sp", onclick: () => { state.ct[tk] = !state.ct[tk]; render(); } }, showTable ? "Show chart" : "Show table")), filter || null, showTable ? tableView(tableHead, tableRows) : makeChart());
 }
 function storeBarsCard(a, n, filterKey) {
  const rows = Object.keys(a.store).map((k) => ({ k, t: ISSUES.reduce((s, i) => s + g(a.store[k].st, i), 0), st: a.store[k].st })).filter((r) => r.t > 0).sort((p, q) => q.t - p.t).slice(0, n);
