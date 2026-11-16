@@ -6,7 +6,7 @@ const secHead = (title, sub, ...tools) => h("div", { class: "chead" }, h("div", 
 
 function settingsTabsList() {
  const tabs = [["profile", "My profile", "user"], ["users", "Users", "users", "manageUsers"], ["roles", "Roles", "shield", "manageUsers"], ["stores", "Stores", "store", "manageStores"], ["rules", "Rules", "sliders", "admin"], ["appearance", "Appearance", "sun"], ["audit", "Activity log", "lock", "owner"]]
-  .filter((t) => !t[3] || (t[3] === "owner" ? isOwner(state.user) || !FIREBASE_CONFIG : t[3] === "admin" ? isAdminUser() : perm(t[3])));
+  .filter((t) => !t[3] || (t[3] === "owner" ? isOwner(state.user) || state.logViewer === true || !FIREBASE_CONFIG : t[3] === "admin" ? isAdminUser() : perm(t[3])));
  if (!tabs.some((t) => t[0] === state.settingsTab)) state.settingsTab = tabs[0][0];
  return tabs;
 }
@@ -210,13 +210,20 @@ function settingsAppearance(body) {
  body.append(secHead("Appearance", "Pick what is easiest on your eyes."), h("div", { class: "brandrow" }, [["light", "Light", "sun"], ["dark", "Dark", "moon"]].map(([v, t, ic]) => h("button", { class: "bchip", "aria-pressed": cur === v ? "true" : "false", onclick: () => { document.documentElement.dataset.theme = v; safe.set("sc.theme", v); render(); } }, ico(ic), t))));
 }
 
-/* ---- activity log (owner only, password again to open) ---- */
+/* ---- activity log (owner, plus view-only logins listed in Firestore logViewers; password again to open) ---- */
 const AUDIT_GROUPS = [["", "Everything"], ["user.", "Users"], ["role.", "Roles"], ["store.", "Stores"], ["settings.", "Rules"], ["account.", "Sign-ups"], ["feed.", "Daily job"]];
 const AUDIT_OPEN_MS = 4 * 60 * 1000;
 const auditPretty = (s) => { if (!s) return "–"; try { return JSON.stringify(JSON.parse(s), null, 2); } catch (e) { return String(s); } };
-function settingsAudit(body) {
- body.append(secHead("Activity log", "Who changed what. Only the owner can open this page."));
- if (!isOwner(state.user) && FIREBASE_CONFIG) { body.append(h("div", { class: "muted", text: "Not available." })); return; }
+function settingsAudit(body, redraw) {
+ const again = redraw || render;
+ body.append(secHead("Activity log", "Who changed what. View only. Only the owner and approved viewers can open this page."));
+ if (!isOwner(state.user) && state.logViewer !== true && FIREBASE_CONFIG) { body.append(h("div", { class: "muted", text: "Not available." })); return; }
+ if (FIREBASE_CONFIG && !isOwner(state.user) && auth.currentUser && !auth.currentUser.emailVerified) {
+  const vmsg = h("div", { class: "muted" });
+  body.append(h("div", { class: "form", style: "max-width:460px" }, h("p", { class: "muted", text: "Before you can open the activity log, confirm that this email address is yours. We send a link to " + auth.currentUser.email + ". Open it, then come back and press \"I have confirmed\"." }),
+   h("div", { class: "row" }, h("button", { class: "btn pri", onclick: async () => { try { await auth.currentUser.sendEmailVerification(); vmsg.textContent = "Link sent. Check your inbox and spam folder."; } catch (e) { vmsg.textContent = /too-many/.test((e && e.code) || "") ? "Too many attempts. Wait a few minutes." : ((e && e.message) || String(e)); } } }, "Send the link"),
+    h("button", { class: "btn", onclick: async () => { try { await auth.currentUser.reload(); if (auth.currentUser.emailVerified) { await auth.currentUser.getIdToken(true); again(); } else vmsg.textContent = "Not confirmed yet. Open the link in the email first."; } catch (e) { vmsg.textContent = (e && e.message) || String(e); } } }, "I have confirmed")), vmsg)); return;
+ }
  if (Date.now() >= (state.auditUntil || 0)) {
   const pw = h("input", { class: "inp", type: "password", autocomplete: "current-password", placeholder: "Enter your password", style: "max-width:320px" }); const err = h("div", { class: "err" });
   const goOpen = async () => {
@@ -224,11 +231,11 @@ function settingsAudit(body) {
    try {
     if (!DB.demo) { const u = auth.currentUser; await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, pw.value)); await u.getIdToken(true); }
     pw.value = ""; state.audit = await DB.loadAudit(500); state.auditUntil = Date.now() + AUDIT_OPEN_MS;
-    clearTimeout(state._auditT); state._auditT = setTimeout(() => { if (state.view === "settings" && state.settingsTab === "audit") render(); }, AUDIT_OPEN_MS + 500); render();
+    clearTimeout(state._auditT); state._auditT = setTimeout(() => { if (redraw || (state.view === "settings" && state.settingsTab === "audit")) again(); }, AUDIT_OPEN_MS + 500); again();
    } catch (e) { pw.value = ""; err.textContent = /wrong-password|invalid-credential|invalid-login/.test((e && (e.code || e.message)) || "") ? "That password is not right." : /too-many/.test((e && e.code) || "") ? "Too many attempts. Wait a few minutes." : ((e && e.message) || String(e)); }
   };
   pw.addEventListener("keydown", (e) => { if (e.key === "Enter") goOpen(); });
-  body.append(h("div", { class: "form", style: "max-width:460px" }, h("p", { class: "muted", text: DB.demo ? "Local mode: no password needed. In the live version you type your password again to open this page, and it locks after 4 minutes." : "This page is locked. Type your password again to open it. It locks after 4 minutes or when you leave the page." }), DB.demo ? null : h("label", { class: "field" }, h("span", null, "Password"), pw), h("div", { class: "row" }, h("button", { class: "btn pri", onclick: goOpen }, ico("lock"), "Unlock"), err))); return;
+  body.append(h("div", { class: "form", style: "max-width:460px" }, h("p", { class: "muted", text: DB.demo ? "Local mode: no password needed. In the live version you type your password again to open this page, and it locks after 4 minutes." : "This page is locked. Type your password again to open it. It locks after 4 minutes or when you leave the page." }), DB.demo ? null : h("label", { class: "field" }, h("span", null, "Password"), pw), DB.demo ? null : h("div", { class: "muted", style: "font-size:13px;margin-top:-4px", text: "Use the same password you sign in to SyncCheck with." }), h("div", { class: "row" }, h("button", { class: "btn pri", onclick: goOpen }, ico("lock"), "Unlock"), err))); return;
  }
  const rows = state.audit || []; let group = "", q = ""; const tb = h("tbody"); const count = h("span", { class: "muted", style: "margin-right:auto" });
  const draw = () => {
@@ -241,7 +248,7 @@ function settingsAudit(body) {
   if (!f.length) tb.append(h("tr", null, h("td", { colspan: 5, class: "muted", text: rows.length ? "No entries match." : "No activity recorded yet." })));
   count.textContent = f.length + " of " + rows.length + " entries (latest 500)";
  };
- body.append(h("div", { class: "row", style: "flex-wrap:wrap;margin-bottom:12px" }, count, h("select", { onchange: (e) => { group = e.target.value; draw(); } }, AUDIT_GROUPS.map(([v, t]) => h("option", { value: v }, t))), h("input", { class: "inp", type: "search", placeholder: "Search who, what, store…", oninput: (e) => { q = e.target.value.trim().toLowerCase(); draw(); } }), h("button", { class: "btn sm", onclick: () => { state.auditUntil = 0; state.audit = null; render(); } }, ico("lock"), "Lock now")),
+ body.append(h("div", { class: "row", style: "flex-wrap:wrap;margin-bottom:12px" }, count, h("select", { onchange: (e) => { group = e.target.value; draw(); } }, AUDIT_GROUPS.map(([v, t]) => h("option", { value: v }, t))), h("input", { class: "inp", type: "search", placeholder: "Search who, what, store…", oninput: (e) => { q = e.target.value.trim().toLowerCase(); draw(); } }), h("button", { class: "btn sm", onclick: () => { state.auditUntil = 0; state.audit = null; again(); } }, ico("lock"), "Lock now")),
   h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, ["When", "Who", "Action", "Item", "What changed"].map((x) => h("th", { text: x })))), tb)));
  draw();
 }

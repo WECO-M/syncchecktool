@@ -179,6 +179,15 @@ function showGate(title, text, extra) {
   h("div", { style: "display:flex;gap:8px;justify-content:center;margin-top:16px" }, extra, h("button", { class: "btn", onclick: () => auth.signOut() }, "Sign out")))));
 }
 
+/* Activity log on its own, for a listed log viewer whose account has no dashboard access (nothing else is shown). */
+function showLogOnly() {
+ if (!auth || !auth.currentUser || state.logViewer !== true) return;
+ hideBoot();
+ const body = h("div", { class: "card" }); settingsAudit(body, showLogOnly);
+ $("root").replaceChildren(h("div", { style: "max-width:1100px;margin:0 auto;padding:24px 16px" },
+  h("div", { class: "row", style: "margin-bottom:16px" }, h("b", { style: "font:600 22px var(--fnum);margin-right:auto", text: "SyncCheck" }), h("button", { class: "btn", onclick: () => auth.signOut() }, "Sign out")), body));
+}
+
 /* ---- boot ---- */
 function applyTheme() { const t = safe.get("sc.theme"); document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light"); }
 async function boot() {
@@ -208,7 +217,7 @@ async function boot() {
  firebase.initializeApp(FIREBASE_CONFIG); auth = firebase.auth(); fsdb = firebase.firestore(); DB = makeFirestoreDB();
  try { const d = await fsdb.collection("config").doc("app").get(); if (d.exists) state.settings = { ...DEFAULT_SETTINGS, ...d.data() }; } catch (e) { /* public read before sign-in is optional */ }
  auth.onAuthStateChanged(async (fbUser) => {
-  if (!fbUser) { state.user = null; showLogin("signin"); return; }
+  if (!fbUser) { state.user = null; state.logViewer = false; state.audit = null; state.auditUntil = 0; clearTimeout(state._auditT); showLogin("signin"); return; }
   try {
    const ref = fsdb.collection("users").doc(fbUser.uid); let snap = await ref.get();
    if (!snap.exists) {
@@ -220,11 +229,15 @@ async function boot() {
    state.user = { uid: fbUser.uid, ...snap.data() }; const u = state.user;
    if (u.locked) return showGate("Account locked", "An Administrator has locked this account. Contact them if that is a mistake.");
    if (u.active === false) return showGate("Account inactive", "This account is switched off. An Administrator can reactivate it under Settings → Users.");
+   // View-only activity log access: the login's own entry in logViewers (kept in Firestore, not in this code). The rules enforce it.
+   state.logViewer = false;
+   if (!isOwner(u) && fbUser.email) { try { state.logViewer = (await fsdb.collection("logViewers").doc(fbUser.email.toLowerCase()).get()).exists; } catch (e) { /* not listed */ } }
+   const logBtn = state.logViewer ? h("button", { class: "btn pri", onclick: showLogOnly }, ico("lock"), "Open activity log") : null;
    if (!u.role || u.role === "pending" || (u.role !== "admin" && !roleInfo(u.role))) {
     try { state.roles = await DB.loadRoles(); } catch (e) { /* ignore */ }
-    if (!u.role || u.role === "pending" || (u.role !== "admin" && !roleInfo(u.role))) return showGate("Waiting for approval", "You are signed in as " + u.email + ". An Administrator needs to give you a role before you can see SyncCheck.");
+    if (!u.role || u.role === "pending" || (u.role !== "admin" && !roleInfo(u.role))) return showGate("Waiting for approval", "You are signed in as " + u.email + ". An Administrator needs to give you a role before you can see SyncCheck.", logBtn);
    }
-   if (!isOwner(u) && u.role !== "admin" && !visibleCountries().length) return showGate("No country access yet", "Ask an Administrator to tick Singapore and/or Malaysia for your account.");
+   if (!isOwner(u) && u.role !== "admin" && !visibleCountries().length) return showGate("No country access yet", "Ask an Administrator to tick Singapore and/or Malaysia for your account.", logBtn);
    if (!$("boot")) document.body.prepend(bootScreen());
    await loadAll();
   } catch (e) { console.error(e); showGate("Something went wrong", (e && e.message) || String(e)); }
