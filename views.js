@@ -95,7 +95,7 @@ function bannerEls(gd) {
 
 /* ---------- charts ---------- */
 function donut(by) {
- const parts = [["OK", "Deducted correctly", "var(--good)"], ["NOT_DEDUCTED", STATUS.NOT_DEDUCTED.short, "var(--s1)"], ["TXN_MISMATCH", STATUS.TXN_MISMATCH.short, "var(--s2)"], ["DUPLICATE", STATUS.DUPLICATE.short, "var(--s3)"], ["PENDING", "Pending", "var(--pend)"]];
+ const parts = [["OK", "Deducted correctly", "var(--good)"], ["NOT_DEDUCTED", STATUS.NOT_DEDUCTED.short, "var(--s1)"], ["TXN_MISMATCH", STATUS.TXN_MISMATCH.short, "var(--s2)"], ["DUPLICATE", STATUS.DUPLICATE.short, "var(--s3)"], ["BAD_EPC", STATUS.BAD_EPC.short, "var(--s6)"], ["PENDING", "Pending", "var(--pend)"]];
  const tot = parts.reduce((s, p) => s + g(by, p[0]), 0) || 1; const R = 82, C = 2 * Math.PI * R; let off = 0;
  const svg = svgEl("svg", { viewBox: "0 0 210 210", role: "img", "aria-label": "POS EPC sales by SWIMS result" }, svgEl("circle", { cx: 105, cy: 105, r: R, fill: "none", stroke: "var(--card2)", "stroke-width": 26 }));
  for (const p of parts) {
@@ -109,7 +109,7 @@ function niceStep(x) { const e = Math.pow(10, Math.floor(Math.log10(x || 1))); c
 function xLabels(svg, days, L, band, H) { days.forEach((d, i) => { if (days.length <= 16 || i % Math.ceil(days.length / 10) === 0 || i === days.length - 1) svg.append(svgEl("text", { x: L + band * i + band / 2, y: H - 8, "text-anchor": "middle" }, fday(d))); }); }
 function rateChart(a, days, gset) {
  const W = 760, H = 270, L = 46, R = 14, T = 26, B = 30, iw = W - L - R, ih = H - T - B; const band = iw / days.length;
- const rates = days.map((d) => { const x = a.day[d] || {}; const res = g(x, "OK") + g(x, "DUPLICATE") + g(x, "NOT_DEDUCTED") + g(x, "TXN_MISMATCH"); return res ? pct(g(x, "OK") + g(x, "DUPLICATE"), res) : null; });
+ const rates = days.map((d) => { const x = a.day[d] || {}; const res = g(x, "OK") + g(x, "DUPLICATE") + g(x, "NOT_DEDUCTED") + g(x, "TXN_MISMATCH") + g(x, "BAD_EPC"); return res ? pct(g(x, "OK") + g(x, "DUPLICATE"), res) : null; });
  const valid = rates.filter((r) => r !== null); const span = valid.length ? 100 - Math.min(...valid) : 5; const step = span <= 8 ? 2 : span <= 20 ? 5 : 10;
  const lo = valid.length ? Math.max(0, 100 - Math.ceil((span + 1) / step) * step) : 90; const top = 100;
  const y = (v) => T + ih - ((v - lo) / (top - lo)) * ih;
@@ -124,7 +124,7 @@ function rateChart(a, days, gset) {
   const x = L + band * i + band / 2; const r = rates[i]; const hit = svgEl("rect", { x: L + band * i, y: T, width: band, height: ih, fill: "transparent", tabindex: 0, "aria-label": fday(d) + ": " + (r === null ? "no data" : r.toFixed(1) + "%") });
   if (r !== null) svg.append(svgEl("circle", { cx: x, cy: y(r), r: 4.5, style: "fill:var(--s1);stroke:var(--card)", "stroke-width": 2 }));
   if (r !== null && i === days.length - 1) svg.append(svgEl("text", { x: x - 4, y: y(r) - 11, "text-anchor": "end", style: "fill:var(--ink);font-weight:700;font-size:13px" }, r.toFixed(1) + "%"));
-  const x2 = a.day[d] || {}; hover(hit, (e) => showTip(e, fday(d), [{ color: "var(--s1)", label: "Deducted in SWIMS", value: r === null ? "–" : r.toFixed(1) + "%" }, { label: "POS EPC sales", value: nf(g(x2, "OK") + g(x2, "DUPLICATE") + g(x2, "NOT_DEDUCTED") + g(x2, "TXN_MISMATCH")) }, { label: "Issues", value: nf(ISSUES.reduce((s, k) => s + g(x2, k), 0)) }], gset.has(d) ? "Possible SWIMS data gap on this day" : ""));
+  const x2 = a.day[d] || {}; hover(hit, (e) => showTip(e, fday(d), [{ color: "var(--s1)", label: "Deducted in SWIMS", value: r === null ? "–" : r.toFixed(1) + "%" }, { label: "POS EPC sales", value: nf(g(x2, "OK") + g(x2, "DUPLICATE") + g(x2, "NOT_DEDUCTED") + g(x2, "TXN_MISMATCH") + g(x2, "BAD_EPC")) }, { label: "Issues", value: nf(ISSUES.reduce((s, k) => s + g(x2, k), 0)) }], gset.has(d) ? "Possible SWIMS data gap on this day" : ""));
   svg.append(hit);
  });
  return svg;
@@ -195,8 +195,8 @@ function storeBarsCard(a, n, filterKey) {
 function healthCards(a, fkey) {
  const ah = fkey ? aggregate(cfForce(fkey)) : a; const hdays = fkey ? cfDays(fkey) : state.period;
  const m = metrics(ah.by); const gd = gapDays(); const mp = missingPosStores();
- const sw = g(a.by, "NOT_DEDUCTED") + g(a.by, "TXN_MISMATCH") + g(a.by, "DUPLICATE") + g(a.by, "RETURN_MISSING"), po = g(a.by, "SWIMS_ONLY");
- const parts = [["OK", "Deducted correctly", "var(--good)"], ["NOT_DEDUCTED", "Not deducted", "var(--s1)"], ["TXN_MISMATCH", "Other transaction", "var(--s2)"], ["DUPLICATE", "Duplicate", "var(--s3)"], ["PENDING", "Pending", "var(--pend)"]];
+ const sw = g(a.by, "NOT_DEDUCTED") + g(a.by, "TXN_MISMATCH") + g(a.by, "DUPLICATE") + g(a.by, "RETURN_MISSING"), po = g(a.by, "SWIMS_ONLY"), sto = g(a.by, "BAD_EPC");
+ const parts = [["OK", "Deducted correctly", "var(--good)"], ["NOT_DEDUCTED", "Not deducted", "var(--s1)"], ["TXN_MISMATCH", "Other transaction", "var(--s2)"], ["DUPLICATE", "Duplicate", "var(--s3)"], ["BAD_EPC", "Wrong EPC", "var(--s6)"], ["PENDING", "Pending", "var(--pend)"]];
  const tot = parts.reduce((s, p) => s + g(ah.by, p[0]), 0) || 1;
  const health = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "How POS sales ended up in SWIMS" }), h("div", { class: "sub", text: nf(m.sales) + " POS EPC sales · " + scopeText(hdays) }))), fkey ? cardFilter(fkey) : null,
   h("div", { class: "health" }, h("div", { class: "donut" }, donut(ah.by), h("div", { class: "mid" }, h("b", { text: fp(m.rate) + "%" }), h("span", { text: "deducted" }))),
@@ -206,6 +206,7 @@ function healthCards(a, fkey) {
   h("div", { class: "asks" },
    ask("box", "var(--s1)", sw, "EPCs to ask the SWIMS vendor about", "", () => { state.vendor = "swims"; state.cat = ""; go("list"); }),
    ask("db", "var(--s5)", po, "EPCs to ask the POS vendor about", "", () => { state.vendor = "pos"; state.cat = ""; go("list"); }),
+   ask("store", "var(--s6)", sto, "wrong EPCs to send back to the stores", "", () => { state.vendor = ""; state.cat = "BAD_EPC"; state.lsort = { k: "store", dir: 1 }; go("list"); }),
    ask("gap", "#c98500", gd.length + mp.length, gd.length + mp.length === 1 ? "data gap flagged above" : "data gaps flagged above", "", () => scrollTo({ top: 0, behavior: "smooth" }))));
  return h("div", { class: "gridhero" }, health, asks);
 }
@@ -234,7 +235,7 @@ function viewOverview(a) {
  const rDays = periodDays(cfDays("rate")), iDays = periodDays(cfDays("issues"));
  const rFull = aggregate(cfForce("rate"), true), iFull = aggregate(cfForce("issues"), true);
  const rGap = new Set(gapDays(cfDays("rate")).map((x) => x.d)), iGap = new Set(gapDays(cfDays("issues")).map((x) => x.d));
- const mrate = (d) => { const x = rFull.day[d] || {}; const r = g(x, "OK") + g(x, "DUPLICATE") + g(x, "NOT_DEDUCTED") + g(x, "TXN_MISMATCH"); return r ? (pct(g(x, "OK") + g(x, "DUPLICATE"), r)).toFixed(1) + "%" : "–"; };
+ const mrate = (d) => { const x = rFull.day[d] || {}; const r = g(x, "OK") + g(x, "DUPLICATE") + g(x, "NOT_DEDUCTED") + g(x, "TXN_MISMATCH") + g(x, "BAD_EPC"); return r ? (pct(g(x, "OK") + g(x, "DUPLICATE"), r)).toFixed(1) + "%" : "–"; };
  return [healthCards(a, "health"), kpiRow(a),
   h("div", { class: "grid2" },
    chartCard("Deduction rate by day", "Share of POS EPC sales that SWIMS deducted. Shaded days are possible SWIMS data gaps.", () => h("div", null, rateChart(rFull, rDays, rGap)), ["Day", "Deducted"], rDays.map((d) => [fday(d), mrate(d)]), "rate", cardFilter("rate")),
@@ -258,21 +259,26 @@ function vendorNote(rows) {
  const top = Object.keys(byStore).sort((p, q) => byStore[q] - byStore[p]).slice(0, 5).map((s) => s + " (" + byStore[s] + ")").join(", ");
  const sample = rows.slice(0, 3).map((r) => "  - " + r.d + " " + r.store + " EPC " + r.epc + " POS txn " + r.txn + (r.swtxn ? " / SWIMS txn " + r.swtxn : "")).join("\n");
  const posSide = rows.length && rows.every((r) => r.st === "SWIMS_ONLY");
+ if (rows.length && rows.every((r) => r.st === "BAD_EPC")) {
+  const per = Object.keys(byStore).sort().map((s) => "  - " + s + ": " + nf(byStore[s])).join("\n");
+  const ex = rows.slice(0, 5).map((r) => "  - " + r.d + " " + r.store + " POS txn " + r.txn + (r.item ? " SKU " + r.item : "") + " keyed in as \"" + r.epc + "\"").join("\n");
+  return "Hi team,\n\nIORA Group SyncCheck found POS sales from " + fday(days[0]) + " to " + fday(days[days.length - 1]) + " where the EPC keyed into the POS is not a valid tag number (" + nf(rows.length) + " lines). A valid EPC starts with AA, BB, CC, DA, DB, DC, BC or EE followed by 22 digits. Because of this, SWIMS did not deduct the stock.\n\nBy store:\n" + per + "\n\nExamples:\n" + ex + "\n\nThe full list is in the attached CSV. Please scan the RFID tag (not the SKU barcode, and do not type the number by hand) at the point of sale, and check the stock for these items.\n\nThanks.";
+ }
  return "Hi team,\n\nIORA Group SyncCheck compared POS sales with SWIMS stock deductions for " + fday(days[0]) + " to " + fday(days[days.length - 1]) + ".\n\n" + (posSide ? "SWIMS has records that the POS data does not show (" + nf(rows.length) + " EPCs):\n" : "These POS sales are not matched correctly in SWIMS (" + nf(rows.length) + " EPCs):\n") + Object.keys(counts).map((k) => "  - " + STATUS[k].label + ": " + nf(counts[k])).join("\n") + "\n\nMost affected stores: " + (top || "n/a") + ".\n\nExamples:\n" + sample + "\n\nThe full list is in the attached CSV. Please check why these were not recorded and let us know the cause and the fix date.\n\nThanks.";
 }
 function openVendorNote(rows) {
  const t = h("textarea", { class: "inp area", rows: 14 }); t.value = vendorNote(rows);
- const who = rows.length && rows.every((r) => r.st === "SWIMS_ONLY") ? "POS vendor" : "SWIMS vendor";
+ const who = rows.length && rows.every((r) => r.st === "BAD_EPC") ? "stores" : rows.length && rows.every((r) => r.st === "SWIMS_ONLY") ? "POS vendor" : "SWIMS vendor";
  openDrawer([h("div", { class: "eyebrow muted", text: "Message draft" }), h("h3", { text: "Note for the " + who }), h("div", { class: "dsub", text: "Edit if you like, copy it, and attach the CSV from Export CSV." }), t,
   h("div", { class: "actions" }, h("button", { class: "btn pri", onclick: () => { t.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (e) { /* ignore */ } if (!ok && navigator.clipboard) navigator.clipboard.writeText(t.value).catch(() => {}); toast("Copied"); } }, "Copy text"), h("button", { class: "btn", onclick: () => download("SyncCheck_" + (state.cat || state.vendor || "all_issues") + "_" + state.maxD + ".csv", csvOf(rows)) }, ico("download"), "Export CSV"))]);
 }
 function openIssue(r) {
  const s = STATUS[r.st]; const si = storeInfo(r.store);
- const ask = r.st === "SWIMS_ONLY" ? "Why does SWIMS show this EPC under this transaction when the POS data does not?" : r.st === "NOT_DEDUCTED" ? "Why did SWIMS not record a sale for this EPC after the POS sold it?" : r.st === "TXN_MISMATCH" ? "Why was this EPC deducted under a different transaction number?" : r.st === "DUPLICATE" ? "Why does SWIMS have more than one sale record for this EPC and transaction?" : r.st === "RETURN_MISSING" ? "Why is there no return record in SWIMS for this returned or exchanged EPC?" : "";
+ const ask = r.st === "BAD_EPC" ? "Why was this keyed in instead of the RFID tag? Please scan the tag at the point of sale and check the stock for this item." : r.st === "SWIMS_ONLY" ? "Why does SWIMS show this EPC under this transaction when the POS data does not?" : r.st === "NOT_DEDUCTED" ? "Why did SWIMS not record a sale for this EPC after the POS sold it?" : r.st === "TXN_MISMATCH" ? "Why was this EPC deducted under a different transaction number?" : r.st === "DUPLICATE" ? "Why does SWIMS have more than one sale record for this EPC and transaction?" : r.st === "RETURN_MISSING" ? "Why is there no return record in SWIMS for this returned or exchanged EPC?" : "";
  const kv = (k, v, mono) => h("div", { class: "row", style: "padding:9px 0;border-bottom:1px solid var(--line)" }, h("span", { class: "muted", style: "width:140px", text: k }), h("span", { class: mono ? "mono" : "", text: v || "–" }));
  openDrawer([h("div", { class: "eyebrow muted", text: "EPC detail" }), h("h3", { text: s.label }), h("div", { class: "dsub", text: s.desc }),
   kv("Date (POS)", fdayL(r.d)), kv("Store", r.store + (si.name !== r.store ? " · " + si.name : "")), kv("Brand", brandInfo(si.brand).label), kv("Channel", r.ch), kv("EPC", r.epc, true), kv("POS transaction", r.txn, true), kv("SKU", r.item, true),
-  kv("SWIMS shows", r.st === "NOT_DEDUCTED" ? "Nothing for this EPC" : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "No return record" : (r.swtxn || "") + (r.swstore ? " · " + r.swstore : ""), true),
+  kv("SWIMS shows", r.st === "BAD_EPC" ? "Nothing: this is not a valid EPC" : r.st === "NOT_DEDUCTED" ? "Nothing for this EPC" : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "No return record" : (r.swtxn || "") + (r.swstore ? " · " + r.swstore : ""), true),
   h("div", { class: "banner info", style: "margin-top:18px" }, h("div", { class: "ic" }, ico("msg")), h("div", null, h("b", { text: "Ask the " + VENDOR[s.who] + ": " }), ask))]);
 }
 function viewList() {
@@ -284,7 +290,7 @@ function viewList() {
  if (state.ldate && !dcount[state.ldate]) state.ldate = "";
  if (state.ldate) rows = rows.filter((r) => r.d === state.ldate);
  const ls = state.lsort || (state.lsort = { k: "d", dir: -1 });
- const swText = (r) => r.st === "SWIMS_ONLY" ? r.swtxn + " · " + r.swstore : r.st === "NOT_DEDUCTED" ? "nothing" : r.st === "TXN_MISMATCH" ? (r.swtxn || "") + " · " + (r.swstore || "") : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "no return record" : "";
+ const swText = (r) => r.st === "BAD_EPC" ? "nothing (not a valid EPC)" : r.st === "SWIMS_ONLY" ? r.swtxn + " · " + r.swstore : r.st === "NOT_DEDUCTED" ? "nothing" : r.st === "TXN_MISMATCH" ? (r.swtxn || "") + " · " + (r.swstore || "") : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "no return record" : "";
  const LCOLS = [["st", "Issue", (r) => (STATUS[r.st] || {}).short || r.st], ["d", "Date", (r) => r.d], ["store", "Store", (r) => r.store], ["brand", "Brand", (r) => brandInfo(storeInfo(r.store).brand).label], ["epc", "EPC", (r) => r.epc], ["txn", "POS txn", (r) => r.txn], ["item", "SKU", (r) => r.item || ""], ["sw", "SWIMS shows", swText]];
  const kf = (LCOLS.find((c) => c[0] === ls.k) || LCOLS[1])[2]; const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
  rows = rows.map((r) => [String(kf(r) || "").toUpperCase(), r]).sort((a, b) => cmp(a[0], b[0]) * ls.dir || cmp(b[1].d, a[1].d) || cmp(a[1].store, b[1].store) || cmp(a[1].epc, b[1].epc)).map((x) => x[1]);
@@ -319,11 +325,11 @@ function viewList() {
 function viewStores(a) {
  const days = periodDays(Math.min(state.period, 14)); const ramp = ["var(--h0)", "var(--h1)", "var(--h2)", "var(--h3)", "var(--h4)", "var(--h5)", "var(--h6)"];
  const mxCell = Math.max(1, ...Object.values(a.store).flatMap((s) => Object.values(s.days)));
- const rows = Object.keys(a.store).map((k) => { const s = a.store[k]; const m = metrics(s.st); const si = storeInfo(k); return { k, si, sales: m.sales, rate: m.rate, nd: g(s.st, "NOT_DEDUCTED"), mm: g(s.st, "TXN_MISMATCH"), dup: g(s.st, "DUPLICATE"), rm: g(s.st, "RETURN_MISSING"), so: g(s.st, "SWIMS_ONLY"), issues: m.issues, days: s.days, by: s.st }; });
+ const rows = Object.keys(a.store).map((k) => { const s = a.store[k]; const m = metrics(s.st); const si = storeInfo(k); return { k, si, sales: m.sales, rate: m.rate, nd: g(s.st, "NOT_DEDUCTED"), mm: g(s.st, "TXN_MISMATCH"), dup: g(s.st, "DUPLICATE"), rm: g(s.st, "RETURN_MISSING"), so: g(s.st, "SWIMS_ONLY"), be: g(s.st, "BAD_EPC"), issues: m.issues, days: s.days, by: s.st }; });
  const brandsShown = BRANDS.filter((b) => !(state.settings.hiddenBrands || []).includes(b.id) && canSeeBrand(b.id) && (!state.br || state.br === b.id));
  const canEdit = perm("manageStores");
  const sortFn = (p, q) => { if (state.sort === "issues" && state.dir === -1 && !state.sortTouched) return (p.si.country === q.si.country ? 0 : p.si.country === "SG" ? -1 : 1) || (q.issues - p.issues); const v = state.sort === "k" ? (p.k < q.k ? -1 : 1) : state.sort === "cc" ? String(p.si.country).localeCompare(q.si.country) : state.sort === "name" ? String(p.si.name).localeCompare(q.si.name) : (p[state.sort] - q[state.sort]); return v * state.dir; };
- const cols = [["k", "Store", ""], ["name", "Name", ""], ["cc", "Country", ""], ["sales", "POS EPC sales", "n"], ["rate", "Deducted", "n"], ["nd", "Not deducted", "n"], ["mm", "Other txn", "n"], ["dup", "Duplicate", "n"], ["rm", "Return missing", "n"], ["so", "SWIMS only", "n"], ["issues", "All issues", "n"]];
+ const cols = [["k", "Store", ""], ["name", "Name", ""], ["cc", "Country", ""], ["sales", "POS EPC sales", "n"], ["rate", "Deducted", "n"], ["nd", "Not deducted", "n"], ["mm", "Other txn", "n"], ["dup", "Duplicate", "n"], ["rm", "Return missing", "n"], ["so", "SWIMS only", "n"], ["be", "Wrong EPC", "n"], ["issues", "All issues", "n"]];
  const out = [h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "Stores by brand" }), h("div", { class: "sub", text: "Each brand has its own table. Click a column to sort, click a store to see its EPCs." + (canEdit ? " Use the pencil to edit a store." : "") })),
   canEdit ? h("button", { class: "btn pri sp", onclick: () => openStoreEditor(null) }, ico("plus"), "Add store") : null))];
  for (const b of brandsShown) {
@@ -332,7 +338,7 @@ function viewStores(a) {
   const head = h("tr", null, cols.map((c) => h("th", { class: "sortable " + c[2], text: c[1] + (state.sort === c[0] ? (state.dir < 0 ? " ▾" : " ▴") : ""), tabindex: 0, onclick: () => { state.sortTouched = true; if (state.sort === c[0]) state.dir = -state.dir; else { state.sort = c[0]; state.dir = c[0] === "k" || c[0] === "name" || c[0] === "cc" ? 1 : -1; } render(); }, onkeydown: (e) => { if (e.key === "Enter") e.target.click(); } })), h("th", { text: "Issues, last " + days.length + " days" }), canEdit ? h("th") : null);
   const tbody = list.map((r) => { const heat = h("span", { class: "heat" }); days.forEach((d) => { const v = r.days[d] || 0; const idx = v ? Math.min(6, 1 + Math.floor(Math.sqrt(v / mxCell) * 6)) : 0; const c = h("i", { style: "background:" + ramp[idx], tabindex: 0, "aria-label": r.k + " " + fday(d) + " " + v }); hover(c, (e) => showTip(e, r.k + " · " + fday(d), [{ label: "Issues", value: nf(v) }])); heat.append(c); });
    return h("tr", { style: "cursor:pointer", onclick: () => { state.store = r.k; state.cat = ""; state.vendor = ""; go("list"); } }, h("td", null, h("b", { text: r.k })), h("td", { text: r.si.name !== r.k ? r.si.name : "" }), h("td", { text: r.si.country }), h("td", { class: "n", text: nf(r.sales) }),
-    h("td", { class: "n" }, r.sales ? h("span", { class: "rate " + rateClass(r.rate), text: fp(r.rate) + "%" }) : h("span", { class: "muted", text: "no POS data" })), h("td", { class: "n", text: nf(r.nd) }), h("td", { class: "n", text: nf(r.mm) }), h("td", { class: "n", text: nf(r.dup) }), h("td", { class: "n", text: nf(r.rm) }), h("td", { class: "n", text: nf(r.so) }), h("td", { class: "n" }, h("b", { text: nf(r.issues) })), h("td", null, heat),
+    h("td", { class: "n" }, r.sales ? h("span", { class: "rate " + rateClass(r.rate), text: fp(r.rate) + "%" }) : h("span", { class: "muted", text: "no POS data" })), h("td", { class: "n", text: nf(r.nd) }), h("td", { class: "n", text: nf(r.mm) }), h("td", { class: "n", text: nf(r.dup) }), h("td", { class: "n", text: nf(r.rm) }), h("td", { class: "n", text: nf(r.so) }), h("td", { class: "n", text: nf(r.be) }), h("td", { class: "n" }, h("b", { text: nf(r.issues) })), h("td", null, heat),
     canEdit ? h("td", null, h("button", { class: "btn sm", "aria-label": "Edit " + r.k, onclick: (e) => { e.stopPropagation(); openStoreEditor(r.si); } }, ico("edit"))) : null); });
   out.push(h("div", { class: "card bsec" }, h("div", { class: "bh" }, h("div", { class: "mono-badge", text: b.mono }), h("div", null, h("h2", { text: b.label }), h("div", { class: "sub", text: list.length + " stores" })),
    h("div", { class: "stats" }, h("div", null, h("b", { text: nf(bm.sales) }), "POS EPC sales"), h("div", null, h("b", { class: "rate " + rateClass(bm.rate), text: fp(bm.rate) + "%" }), "deducted"), h("div", null, h("b", { text: nf(bm.issues) }), "issues"))),

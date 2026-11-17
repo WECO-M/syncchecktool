@@ -46,10 +46,12 @@ const STATUS = {
  DUPLICATE: { label: "Deducted more than once", short: "Duplicate", who: "swims", v: "--s3", icon: "dup", dark: false, desc: "SWIMS has two or more sale records for the same EPC and transaction." },
  RETURN_MISSING: { label: "Return not recorded in SWIMS", short: "Return missing", who: "swims", v: "--s4", icon: "undo", dark: true, desc: "POS recorded a return or exchange for this EPC, but SWIMS has no return record." },
  SWIMS_ONLY: { label: "In SWIMS, not in POS", short: "SWIMS only", who: "pos", v: "--s5", icon: "db", dark: false, desc: "SWIMS has a sale or return for this EPC and transaction that the POS data does not show." },
+ BAD_EPC: { label: "Wrong EPC keyed in at the store", short: "Wrong EPC", who: "store", v: "--s6", icon: "store", dark: false, desc: "The EPC on the POS sale is not a valid tag number (AA, BB, CC, DA, DB, DC, BC or EE followed by 22 digits), so SWIMS cannot deduct it. The store scanned or typed something else, such as the SKU barcode." },
  PENDING: { label: "Pending (latest day)", short: "Pending", who: "", v: "--pend", icon: "clock", dark: true, desc: "Latest POS day. SWIMS may still catch up, so this is not an issue yet." },
 };
-const ISSUES = ["NOT_DEDUCTED", "TXN_MISMATCH", "DUPLICATE", "RETURN_MISSING", "SWIMS_ONLY"];
-const VENDOR = { swims: "SWIMS vendor", pos: "POS vendor" };
+const ISSUES = ["NOT_DEDUCTED", "TXN_MISMATCH", "DUPLICATE", "RETURN_MISSING", "SWIMS_ONLY", "BAD_EPC"];
+const VENDOR = { swims: "SWIMS vendor", pos: "POS vendor", store: "store" };
+const EPC_OK = /^(AA|BB|CC|DA|DB|DC|BC|EE)\d{22}$/;   // same rule as the BAD_EPC line in feed\sum.sql.tpl and iss.sql.tpl
 const BRANDS = [
  { id: "IORA", label: "iORA", mono: "iO" }, { id: "SANS", label: "SANS & SANS", mono: "SS" }, { id: "TRT", label: "The Restyle Trait", mono: "TRT" },
  { id: "JUBA", label: "JUBA", mono: "JU" }, { id: "MONOLOQ", label: "MONOLOQ", mono: "MQ" },
@@ -140,7 +142,7 @@ function aggregate(force, incGap) {
  return { by, day, store };
 }
 function metrics(by) {
- const sales = g(by, "OK") + g(by, "DUPLICATE") + g(by, "NOT_DEDUCTED") + g(by, "TXN_MISMATCH") + g(by, "PENDING");
+ const sales = g(by, "OK") + g(by, "DUPLICATE") + g(by, "NOT_DEDUCTED") + g(by, "TXN_MISMATCH") + g(by, "BAD_EPC") + g(by, "PENDING");
  const resolved = sales - g(by, "PENDING"); const deducted = g(by, "OK") + g(by, "DUPLICATE");
  return { sales, resolved, deducted, rate: resolved ? pct(deducted, resolved) : 100, issues: ISSUES.reduce((a, k) => a + g(by, k), 0) };
 }
