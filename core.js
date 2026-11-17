@@ -190,6 +190,7 @@ window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(
 function download(name, text) { const a = h("a", { href: URL.createObjectURL(new Blob(["﻿" + text], { type: "text/csv;charset=utf-8" })), download: name }); document.body.append(a); a.click(); a.remove(); }
 function csvOf(rows) {
  const head = ["issue", "date", "store", "country", "brand", "channel", "epc", "pos_txn", "sku", "swims_txn", "swims_store", "swims_rows"];
- const esc = (v) => { v = v === null || v === undefined ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+ // Long all-digit values (transaction numbers, some EPCs) are written as ="..." so Excel keeps them as text instead of 2.6111E+13.
+ const esc = (v) => { v = v === null || v === undefined ? "" : String(v); if (/^\d{11,}$/.test(v)) return '"=""' + v + '"""'; return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
  return [head.join(",")].concat(rows.map((r) => [STATUS[r.st] ? STATUS[r.st].short : r.st, r.d, r.store, r.cc, storeInfo(r.store).brand, r.ch, r.epc, r.txn, r.item, r.swtxn, r.swstore, r.cnt].map(esc).join(","))).join("\r\n");
 }

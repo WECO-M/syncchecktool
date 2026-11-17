@@ -1,6 +1,6 @@
 "use strict";
 /* IORA Group · SyncCheck — page shell and views */
-const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], ["stores", "Stores", "store"], ["ecm", "ECM", "globe"], ["search", "EPC search", "search"], ["guide", "How it works", "book"]];
+const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], ["stores", "Stores", "store"], ["ecm", "ECM", "globe"], ["search", "EPC / SKU search", "search"], ["guide", "How it works", "book"]];
 const rateClass = (x) => (x >= 99 ? "g" : x >= 97 ? "w" : "b");
 const scopeText = (n) => { const d = periodDays(n || state.period); return fday(d[0]) + " – " + fday(d[d.length - 1]); };
 /* Hide/show button for any filter bar. Default: open on desktop, hidden on phones. Returns an array of nodes. */
@@ -279,18 +279,38 @@ function viewList() {
  if (!perm("details")) return [h("div", { class: "card" }, h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("h3", { text: "EPC lists are not part of your role" }), h("p", { text: "Ask an Administrator for the “See EPC lists and export” permission." })))];
  if (state.loadingIss && !state.iss.length) return [h("div", { class: "card" }, h("div", { class: "skel", style: "width:40%;margin-bottom:16px" }), [1, 2, 3, 4, 5, 6].map(() => h("div", { class: "skel", style: "margin:14px 0" })))];
  let rows = issueRows(); if (state.vendor) rows = rows.filter((r) => (STATUS[r.st] || {}).who === state.vendor);
+ // one-date filter and sorting (column headers or the Sort box); Export CSV follows both
+ const dcount = {}; for (const r of rows) dcount[r.d] = (dcount[r.d] || 0) + 1; const dates = Object.keys(dcount).sort().reverse();
+ if (state.ldate && !dcount[state.ldate]) state.ldate = "";
+ if (state.ldate) rows = rows.filter((r) => r.d === state.ldate);
+ const ls = state.lsort || (state.lsort = { k: "d", dir: -1 });
+ const swText = (r) => r.st === "SWIMS_ONLY" ? r.swtxn + " · " + r.swstore : r.st === "NOT_DEDUCTED" ? "nothing" : r.st === "TXN_MISMATCH" ? (r.swtxn || "") + " · " + (r.swstore || "") : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "no return record" : "";
+ const LCOLS = [["st", "Issue", (r) => (STATUS[r.st] || {}).short || r.st], ["d", "Date", (r) => r.d], ["store", "Store", (r) => r.store], ["brand", "Brand", (r) => brandInfo(storeInfo(r.store).brand).label], ["epc", "EPC", (r) => r.epc], ["txn", "POS txn", (r) => r.txn], ["item", "SKU", (r) => r.item || ""], ["sw", "SWIMS shows", swText]];
+ const kf = (LCOLS.find((c) => c[0] === ls.k) || LCOLS[1])[2]; const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+ rows = rows.map((r) => [String(kf(r) || "").toUpperCase(), r]).sort((a, b) => cmp(a[0], b[0]) * ls.dir || cmp(b[1].d, a[1].d) || cmp(a[1].store, b[1].store) || cmp(a[1].epc, b[1].epc)).map((x) => x[1]);
+ const setSort = (k, dir) => { state.lsort = { k, dir }; state.page = 0; render(); };
+ const SORTS = [["d:-1", "Date: newest first"], ["d:1", "Date: oldest first"], ["st:1", "Issue: A to Z"], ["store:1", "Store: A to Z"], ["brand:1", "Brand: A to Z"], ["epc:1", "EPC: A to Z"], ["item:1", "SKU: A to Z"], ["txn:1", "POS txn: low to high"]];
+ const curSort = ls.k + ":" + ls.dir; if (!SORTS.some((s) => s[0] === curSort)) SORTS.push([curSort, (LCOLS.find((c) => c[0] === ls.k) || LCOLS[1])[1] + (ls.dir < 0 ? ": Z to A" : ": A to Z")]);
+ const sortSel = h("select", { "aria-label": "Sort", onchange: (e) => { const p = e.target.value.split(":"); setSort(p[0], +p[1]); } }, SORTS.map(([v, t]) => h("option", { value: v }, t))); sortSel.value = curSort;
+ const dateSel = h("select", { "aria-label": "Date", onchange: (e) => { state.ldate = e.target.value; state.page = 0; render(); } }, h("option", { value: "" }, "All dates"), dates.map((d) => h("option", { value: d }, fdayL(d) + " (" + nf(dcount[d]) + ")"))); dateSel.value = state.ldate || "";
  const per = 50, pages = Math.max(1, Math.ceil(rows.length / per)); if (state.page >= pages) state.page = pages - 1; const slice = rows.slice(state.page * per, (state.page + 1) * per);
  const title = state.cat ? STATUS[state.cat].label : state.vendor ? "Ask the " + VENDOR[state.vendor] : "All issues";
  const chips = h("div", { class: "brandrow", style: "margin-bottom:12px" }, h("button", { class: "bchip", "aria-pressed": !state.cat && !state.vendor ? "true" : "false", onclick: () => { state.cat = ""; state.vendor = ""; state.page = 0; render(); } }, "All issues"),
   ISSUES.map((k) => h("button", { class: "bchip", "aria-pressed": state.cat === k ? "true" : "false", onclick: () => { state.cat = state.cat === k ? "" : k; state.vendor = ""; state.page = 0; render(); } }, h("i", { style: "width:10px;height:10px;border-radius:3px;background:var(" + STATUS[k].v + ")" }), STATUS[k].short)));
  const card = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: title }), h("div", { class: "sub", text: (state.cat ? STATUS[state.cat].desc + " " : "") + nf(rows.length) + " EPCs in this view." })),
   h("button", { class: "btn sp", onclick: () => download("SyncCheck_" + (state.cat || state.vendor || "all_issues") + "_" + state.maxD + ".csv", csvOf(rows)) }, ico("download"), "Export CSV"), h("button", { class: "btn pri", onclick: () => openVendorNote(rows) }, ico("msg"), "Note for vendor")), fToggle("list", [chips,
-  h("div", { style: "margin-bottom:12px" }, h("input", { class: "inp", type: "search", placeholder: "Search EPC, transaction or SKU", value: state.q, style: "width:min(420px,100%)", "aria-label": "Search", oninput: (e) => { state.q = e.target.value; state.page = 0; const p = e.target.selectionStart; render(); const n = document.querySelector('input[type="search"]'); if (n) { n.focus(); n.setSelectionRange(p, p); } } }))]));
- if (!rows.length) { card.append(h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("div", { text: "Nothing to show for these filters." }))); return [card]; }
- const th = ["Issue", "Date", "Store", "Brand", "EPC", "POS txn", "SKU", "SWIMS shows"];
- card.append(h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, th.map((x) => h("th", { text: x })))), h("tbody", null, slice.map((r) => h("tr", { style: "cursor:pointer", onclick: () => openIssue(r) },
+  h("div", { class: "row", style: "flex-wrap:wrap;gap:8px;margin-bottom:12px" }, h("input", { class: "inp", type: "search", placeholder: "Search EPC, transaction or SKU", value: state.q, style: "width:min(420px,100%)", "aria-label": "Search", oninput: (e) => { state.q = e.target.value; state.page = 0; const p = e.target.selectionStart; render(); const n = document.querySelector('input[type="search"]'); if (n) { n.focus(); n.setSelectionRange(p, p); } } }),
+   h("label", { class: "fl" }, "Date", dateSel), h("label", { class: "fl" }, "Sort", sortSel))]));
+ if (!rows.length) {
+  const qq = state.q.trim();   // green tick only when there is no search text: an empty search result is not a "all good"
+  card.append(h("div", { class: "empty" }, h("div", { html: qq ? NOMATCH_ART : EMPTY_ART }), h("div", { text: qq ? "No issue matches “" + qq + "” in this view." : "No issues for these filters." }),
+   qq ? h("div", { class: "muted", style: "max-width:520px;margin:6px auto 0", text: "This list only holds problem lines, for the period and filters chosen above" + (state.exGap !== false ? " (gap days are left out)" : "") + ". An empty result does not mean the item was deducted. To see every sale of an EPC or SKU, search all sales." }) : null,
+   qq ? h("button", { class: "btn", style: "margin-top:12px", onclick: () => { state.sq = qq; go("search"); } }, ico("search"), "Search all sales") : null));
+  return [card];
+ }
+ card.append(h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, LCOLS.map((c) => h("th", { class: "sortable", title: "Click to sort", tabindex: 0, text: c[1] + (ls.k === c[0] ? (ls.dir < 0 ? " ▾" : " ▴") : ""), onclick: () => setSort(c[0], ls.k === c[0] ? -ls.dir : (c[0] === "d" ? -1 : 1)), onkeydown: (e) => { if (e.key === "Enter") e.target.click(); } })))), h("tbody", null, slice.map((r) => h("tr", { style: "cursor:pointer", onclick: () => openIssue(r) },
   h("td", null, h("span", { class: "tag" }, h("i", { style: "background:var(" + STATUS[r.st].v + ")" }), STATUS[r.st].short)), h("td", { text: fday(r.d) }), h("td", { text: r.store }), h("td", { text: brandInfo(storeInfo(r.store).brand).label }), h("td", { class: "mono", text: r.epc }), h("td", { class: "mono", text: r.txn }), h("td", { class: "mono", text: r.item || "" }),
-  h("td", { class: "mono", text: r.st === "SWIMS_ONLY" ? r.swtxn + " · " + r.swstore : r.st === "NOT_DEDUCTED" ? "nothing" : r.st === "TXN_MISMATCH" ? (r.swtxn || "") + " · " + (r.swstore || "") : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "no return record" : "" })))))),
+  h("td", { class: "mono", text: swText(r) })))))),
   h("div", { class: "pager" }, h("span", { text: "Page " + (state.page + 1) + " of " + pages }), h("button", { class: "btn sm", disabled: state.page === 0, onclick: () => { state.page--; render(); } }, "Prev"), h("button", { class: "btn sm", disabled: state.page >= pages - 1, onclick: () => { state.page++; render(); } }, "Next")));
  return [card];
 }
@@ -326,35 +346,44 @@ function viewStores(a) {
 }
 
 /* ---------- EPC search ---------- */
-const SEARCH_ST = { OK: { short: "Deducted in SWIMS", v: "--s3" }, RETURN_OK: { short: "Return recorded in SWIMS", v: "--s3" } };
+const SEARCH_ST = { OK: { short: "Deducted in SWIMS", v: "--s3" }, RETURN_OK: { short: "Return recorded in SWIMS", v: "--s3" }, NO_EPC: { short: "Sold without EPC", v: "--muted" } };
 const stInfo = (k) => SEARCH_ST[k] || STATUS[k] || { short: k, v: "--ok" };
+const SEARCH_CAP = 300;
+/* Each term: exact EPC, else exact SKU, else part of an EPC, else part of a SKU (e.g. the style code without colour and size). */
 function searchEpcs(q) {
  const terms = String(q || "").split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean).slice(0, 30);
+ const skuIdx = state.skuIdx || new Map();
  return terms.map((t) => {
-  const key = t.toUpperCase(); let rows = state.lkIdx.get(t) || state.lkIdx.get(key) || [], partial = false;
-  if (!rows.length && t.length >= 4) { partial = true; for (const [e, a] of state.lkIdx) { if (e.toUpperCase().includes(key)) { rows = rows.concat(a); if (rows.length > 60) break; } } }
+  const key = t.toUpperCase(); let rows = state.lkIdx.get(t) || state.lkIdx.get(key) || [], partial = false, by = "EPC";
+  if (!rows.length && skuIdx.has(key)) { rows = skuIdx.get(key); by = "SKU"; }
+  if (!rows.length && t.length >= 4) {
+   partial = true;
+   for (const [e, a] of state.lkIdx) { if (e.toUpperCase().includes(key)) { rows = rows.concat(a); if (rows.length > 60) break; } }
+   if (!rows.length) { by = "SKU"; const acc = []; for (const [e, a] of skuIdx) { if (e.includes(key)) { for (const x of a) acc.push(x); if (acc.length > 20000) break; } } rows = acc; }
+  }
   rows = rows.filter((r) => { const s = storeInfo(r.store); return !(state.settings.hiddenBrands || []).includes(s.brand) && canSeeCountry(r.cc) && canSeeBrand(s.brand) && canSeeStore(r.store); });
-  rows.sort((a, b) => (a.d < b.d ? 1 : -1));
-  return { t, rows, partial };
+  rows.sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+  const total = rows.length; if (total > SEARCH_CAP) rows = rows.slice(0, SEARCH_CAP);
+  return { t, rows, partial, by, total };
  });
 }
 function viewSearch() {
- if (!perm("details")) return [h("div", { class: "card" }, h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("h3", { text: "EPC search is not part of your role" }), h("p", { text: "Ask an Administrator for the “See EPC lists and export” permission." })))];
+ if (!perm("details")) return [h("div", { class: "card" }, h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("h3", { text: "EPC and SKU search is not part of your role" }), h("p", { text: "Ask an Administrator for the “See EPC lists and export” permission." })))];
  const nd = periodDays(30).length;
- const box = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "Find an EPC" }), h("div", { class: "sub", text: "Type or paste one or more EPCs (space, comma or new line). You will see which store sold it, on which transaction, and whether SWIMS deducted it. Covers the last " + nd + " days of POS sales." }))),
-  h("div", { class: "sbar" }, ico("search"), h("input", { class: "inp", id: "epcq", type: "search", autocomplete: "off", spellcheck: "false", placeholder: "e.g. 496920", value: state.sq || "", "aria-label": "Search EPC",
+ const box = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: "Find an EPC or SKU" }), h("div", { class: "sub", text: "Type or paste one or more EPCs or SKUs (space, comma or new line). You will see which store sold it, on which transaction, and whether SWIMS deducted it. A SKU search also shows lines sold with no EPC scanned. Covers the last " + nd + " days of POS sales." }))),
+  h("div", { class: "sbar" }, ico("search"), h("input", { class: "inp", id: "epcq", type: "search", autocomplete: "off", spellcheck: "false", placeholder: "EPC (e.g. 496920) or SKU", value: state.sq || "", "aria-label": "Search EPC or SKU",
    oninput: (e) => { state.sq = e.target.value; clearTimeout(window.__sqt); window.__sqt = setTimeout(() => { const p = e.target.selectionStart; render(); const n = $("epcq"); if (n) { n.focus(); try { n.setSelectionRange(p, p); } catch (x) {} } }, 250); } })));
  if (state.lkErr) { box.append(h("div", { class: "empty" }, h("div", { text: "Could not load the lookup: " + state.lkErr }), h("div", { class: "muted", text: "The owner may need to publish the latest security rules, then refresh." }))); return [box]; }
  if (state.lkLoading || !state.lk) { box.append(h("div", { style: "padding:10px 0" }, h("div", { class: "skel", style: "width:50%;margin-bottom:12px" }), h("div", { class: "muted", text: "Loading the EPC lookup (about 30 days of sales)… a few seconds the first time." }))); if (!state.lkLoading) setTimeout(ensureLookup, 0); return [box]; }
  const res = searchEpcs(state.sq);
- if (!res.length) { box.append(h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("div", { text: "Start typing an EPC above." }), h("div", { class: "muted", text: nf(state.lkIdx.size) + " EPCs available to search." }))); return [box]; }
+ if (!res.length) { box.append(h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("div", { text: "Start typing an EPC or SKU above." }), h("div", { class: "muted", text: nf(state.lkIdx.size) + " EPCs and " + nf((state.skuIdx || new Map()).size) + " SKUs available to search." }))); return [box]; }
  const out = [box];
  for (const r of res) {
-  const c = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { class: "mono", text: r.t }), h("div", { class: "sub", text: r.rows.length ? (r.partial ? "Partial match · " : "") + nf(r.rows.length) + " sale line" + (r.rows.length > 1 ? "s" : "") + " found" : "Not found" }))));
-  if (!r.rows.length) { c.append(h("div", { class: "empty" }, h("div", { text: "No POS sale for this EPC in the last " + nd + " days (or outside your access)." }), h("div", { class: "muted", text: "Check the digits, or it may have been sold before this window." }))); out.push(c); continue; }
-  const head = ["SWIMS result", "Date", "Store", "Brand", "EPC", "POS txn", "SWIMS txn"];
+  const c = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { class: "mono", text: r.t }), h("div", { class: "sub", text: r.rows.length ? "Matched by " + r.by + (r.partial ? " (partial)" : "") + " · " + nf(r.total) + " sale line" + (r.total > 1 ? "s" : "") + " found" + (r.total > r.rows.length ? ", showing the newest " + nf(r.rows.length) : "") : "Not found" }))));
+  if (!r.rows.length) { c.append(h("div", { class: "empty" }, h("div", { html: NOMATCH_ART }), h("div", { text: "No POS sale for this EPC or SKU in the last " + nd + " days (or outside your access)." }), h("div", { class: "muted", text: "Check the digits or the SKU spelling, or it may have been sold before this window." }))); out.push(c); continue; }
+  const head = ["SWIMS result", "Date", "Store", "Brand", "SKU", "EPC", "POS txn", "SWIMS txn"];
   c.append(h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, head.map((x) => h("th", { text: x })))), h("tbody", null, r.rows.map((x) => { const s = storeInfo(x.store), si = stInfo(x.st); return h("tr", null,
-   h("td", null, h("span", { class: "tag" }, h("i", { style: "background:var(" + si.v + ")" }), si.short)), h("td", { text: fdayL(x.d) }), h("td", { text: x.store + (s.name && s.name !== x.store ? " · " + s.name : "") }), h("td", { text: brandInfo(s.brand).label }), h("td", { class: "mono", text: x.epc }), h("td", { class: "mono", text: x.txn }), h("td", { class: "mono", text: x.swtxn || "" })); })))));
+   h("td", null, h("span", { class: "tag" }, h("i", { style: "background:var(" + si.v + ")" }), x.st === "NO_EPC" ? (x.cnt < 0 ? "Returned without EPC" : "Sold without EPC") + (Math.abs(x.cnt) > 1 ? " · qty " + Math.abs(x.cnt) : "") : si.short)), h("td", { text: fdayL(x.d) }), h("td", { text: x.store + (s.name && s.name !== x.store ? " · " + s.name : "") }), h("td", { text: brandInfo(s.brand).label }), h("td", { class: "mono", text: x.sku || "" }), x.epc ? h("td", { class: "mono", text: x.epc }) : h("td", { class: "muted", text: "none scanned" }), h("td", { class: "mono", text: x.txn }), h("td", { class: "mono", text: x.swtxn || "" })); })))));
   out.push(c);
  }
  return out;
