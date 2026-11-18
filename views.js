@@ -1,6 +1,8 @@
 "use strict";
 /* IORA Group · SyncCheck — page shell and views */
-const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], ["stores", "Stores", "store"], ["ecm", "ECM", "globe"], ["search", "EPC / SKU search", "search"], ["guide", "How it works", "book"]];
+const TABS = [["overview", "Overview", "home"], ["list", "Issue list", "list"], ["stores", "Stores", "store"], ["ecm", "ECM", "globe"], ["search", "EPC / SKU search", "search"]];
+/* "How it works" lives in the footer and opens as a side panel. */
+function openGuide() { openDrawer(viewGuide()); }
 const rateClass = (x) => (x >= 99 ? "g" : x >= 97 ? "w" : "b");
 const scopeText = (n) => { const d = periodDays(n || state.period); return fday(d[0]) + " – " + fday(d[d.length - 1]); };
 /* Hide/show button for any filter bar. Default: open on desktop, hidden on phones. Returns an array of nodes. */
@@ -26,7 +28,7 @@ function renderInner(root) {
  if (state.view === "settings") { root.replaceChildren(shell(settingsBody())); return; }
  if (!state.maxD) { root.replaceChildren(shell(h("div", { class: "card" }, h("div", { class: "empty" }, h("div", { html: EMPTY_ART }), h("h3", { text: "No data yet" }), h("p", { text: DB && DB.demo ? "Run feed\\build_synccheck.ps1 to create the local data file." : "The daily job has not published any data yet. Ask the owner to run the SyncCheck feed." }))))); return; }
  const a = aggregate();
- const body = ({ overview: viewOverview, list: viewList, stores: viewStores, ecm: viewECM, search: viewSearch, guide: viewGuide }[state.view] || viewOverview)(a);
+ const body = ({ overview: viewOverview, list: viewList, stores: viewStores, ecm: viewECM, search: viewSearch }[state.view] || viewOverview)(a);
  root.replaceChildren(shell(body, a));
  const tt = $("totop"); if (tt) tt.classList.toggle("on", scrollY > 500);
 }
@@ -60,7 +62,7 @@ function shell(body, a) {
    h("div", { class: "ftoggle" }, h("button", { class: "btn sm", "aria-expanded": state.fopen ? "true" : "false", onclick: () => { state.fopen = !state.fopen; safe.set("sc.fopen", state.fopen ? "1" : "0"); render(); } }, ico("sliders"), state.fopen ? "Hide filters" : "Show filters" + ([state.cc, state.br, state.ch, state.store].filter(Boolean).length ? " (" + [state.cc, state.br, state.ch, state.store].filter(Boolean).length + " on)" : ""))),
    state.fopen ? filterRow() : null) : null));
  const banners = state.view === "settings" || !state.maxD ? null : h("div", { class: "wrap banners" }, bannerEls(gd));
- return h("div", { onclick: () => { if (state.menu) { state.menu = false; render(); } } }, hero, nav, banners, h("main", null, h("div", { class: "wrap" }, body, h("div", { class: "foot" }, "IORA Group · Internal use only · Confidential. Source: BigQuery (POS sales with serial · SWIMS POS sale records). EPCs, transaction numbers, store codes and SKUs only; no customer data."))));
+ return h("div", { onclick: () => { if (state.menu) { state.menu = false; render(); } } }, hero, nav, banners, h("main", null, h("div", { class: "wrap" }, body, h("div", { class: "foot" }, h("button", { class: "footlink", onclick: (e) => { e.stopPropagation(); openGuide(); } }, ico("book"), "How it works"), "IORA Group · Internal use only · Confidential. Source: BigQuery (POS sales with serial · SWIMS POS sale records). EPCs, transaction numbers, store codes and SKUs only; no customer data."))));
 }
 function go(view, tab) { state.view = view; state.menu = false; if (tab) state.settingsTab = tab; state.page = 0; if (view === "list") ensureIssues(); if (view === "search") ensureLookup(); closeDrawer(); render(); scrollTo(0, 0); }
 function toggleTheme() { const nx = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = nx; safe.set("sc.theme", nx); render(); }
