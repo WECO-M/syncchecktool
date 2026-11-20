@@ -180,7 +180,9 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 tr.grouprow td{background:var(--card2)!important;font-weight:700;font-size:13.5px;color:var(--ink2);border-top:1px solid var(--line2)}
 .tag{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:13.5px;padding:3px 10px;border-radius:999px;background:var(--card2);border:1px solid var(--line)}
 .tag i{width:10px;height:10px;border-radius:3px}
-.pager{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:12px;color:var(--ink2);font-size:14px}
+.pager{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end;margin-top:12px;color:var(--ink2);font-size:14px}
+.pager .pcount{margin-right:auto}
+.pager .pcount b{color:var(--ink)}
 .heat{display:inline-grid;grid-auto-flow:column;gap:2px;vertical-align:middle}
 .heat i{width:11px;height:18px;border-radius:3px;display:block;background:var(--h0)}
 .bar{display:inline-block;height:8px;border-radius:4px;background:var(--s3);vertical-align:middle;margin-right:8px}
