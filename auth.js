@@ -1,7 +1,9 @@
 "use strict";
 /* IORA Group · SyncCheck — data layer (demo + Firestore), sign-in, gates, boot */
 const toSum = (r) => ({ st: r[0], d: r[1], store: r[2], cc: r[3], br: r[4], ch: r[5], n: r[6] });
-const toIss = (r) => ({ st: r[0], d: r[1], store: r[2], cc: r[3], br: r[4], ch: r[5], epc: r[6], txn: r[7], item: r[8], swtxn: r[9], swstore: r[10], cnt: r[11] });
+const toIss = (r) => ({ st: r[0], d: r[1], store: r[2], cc: r[3], br: r[4], ch: r[5], epc: r[6], txn: r[7], item: r[8], swtxn: r[9], swstore: r[10], cnt: r[11],
+ /* current SWIMS stock status / location of the EPC (feed of 23 Nov 2026 onwards; older rows have 12 elements) */
+ inv: r.length > 12, invst: r[12] || "", invloc: r[13] || "", invto: r[14] || "", invon: r[15] || "" });
 
 /* ---- activity log: every change is written in the same batch as an append-only auditLog entry (owner can read it) ---- */
 const AUDIT_HIDE = /pass|pw|token|secret/i;

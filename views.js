@@ -280,7 +280,10 @@ function openIssue(r) {
  const kv = (k, v, mono) => h("div", { class: "row", style: "padding:9px 0;border-bottom:1px solid var(--line)" }, h("span", { class: "muted", style: "width:140px", text: k }), h("span", { class: mono ? "mono" : "", text: v || "–" }));
  openDrawer([h("div", { class: "eyebrow muted", text: "EPC detail" }), h("h3", { text: s.label }), h("div", { class: "dsub", text: s.desc }),
   kv("Date (POS)", fdayL(r.d)), kv("Store", r.store + (si.name !== r.store ? " · " + si.name : "")), kv("Brand", brandInfo(si.brand).label), kv("Channel", r.ch), kv("EPC", r.epc, true), kv("POS transaction", r.txn, true), kv("SKU", r.item, true),
-  kv("SWIMS shows", r.st === "BAD_EPC" ? "Nothing: this is not a valid EPC" : r.st === "NOT_DEDUCTED" ? "Nothing for this EPC" : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "No return record" : (r.swtxn || "") + (r.swstore ? " · " + r.swstore : ""), true),
+  kv("SWIMS sale record", r.st === "BAD_EPC" ? "Nothing: this is not a valid EPC" : r.st === "NOT_DEDUCTED" ? "Nothing for this EPC" : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "No return record" : (r.swtxn || "") + (r.swstore ? " · " + r.swstore : ""), true),
+  invStatus(r) ? [h("div", { class: "eyebrow muted", style: "margin-top:18px", text: "This EPC in SWIMS stock" + (invAsOf() ? ", as at " + invAsOf() : "") }),
+   kv("Status", invStatus(r)), r.invst ? kv("Location", invLoc(r)) : null, r.invst ? kv("Last update", r.invon ? fdayL(r.invon) : "") : null,
+   h("div", { class: "muted", style: "font-size:13px;margin-top:8px", text: r.invst ? "This is where SWIMS has the EPC now, not where it was at the time of sale." : "SWIMS has no stock record for this EPC." })] : null,
   h("div", { class: "banner info", style: "margin-top:18px" }, h("div", { class: "ic" }, ico("msg")), h("div", null, h("b", { text: "Ask the " + VENDOR[s.who] + ": " }), ask))]);
 }
 function viewList() {
@@ -291,24 +294,31 @@ function viewList() {
  const dcount = {}; for (const r of rows) dcount[r.d] = (dcount[r.d] || 0) + 1; const dates = Object.keys(dcount).sort().reverse();
  if (state.ldate && !dcount[state.ldate]) state.ldate = "";
  if (state.ldate) rows = rows.filter((r) => r.d === state.ldate);
+ // current SWIMS stock status of the EPC: filter box with counts (only when the feed carries it)
+ const inv = invOn(); const icount = {}; if (inv) for (const r of rows) { const k = invStatus(r); if (k) icount[k] = (icount[k] || 0) + 1; }
+ if (state.linv && !icount[state.linv]) state.linv = "";
+ if (state.linv) rows = rows.filter((r) => invStatus(r) === state.linv);
  const ls = state.lsort || (state.lsort = { k: "d", dir: -1 });
  const swText = (r) => r.st === "BAD_EPC" ? "nothing (not a valid EPC)" : r.st === "SWIMS_ONLY" ? r.swtxn + " · " + r.swstore : r.st === "NOT_DEDUCTED" ? "nothing" : r.st === "TXN_MISMATCH" ? (r.swtxn || "") + " · " + (r.swstore || "") : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "no return record" : "";
- const LCOLS = [["st", "Issue", (r) => (STATUS[r.st] || {}).short || r.st], ["d", "Date", (r) => r.d], ["store", "Store", (r) => r.store], ["brand", "Brand", (r) => brandInfo(storeInfo(r.store).brand).label], ["epc", "EPC", (r) => r.epc], ["txn", "POS txn", (r) => r.txn], ["item", "SKU", (r) => r.item || ""], ["sw", "SWIMS shows", swText]];
+ const LCOLS = [["st", "Issue", (r) => (STATUS[r.st] || {}).short || r.st], ["d", "Date", (r) => r.d], ["store", "Store", (r) => r.store], ["brand", "Brand", (r) => brandInfo(storeInfo(r.store).brand).label], ["epc", "EPC", (r) => r.epc], ["txn", "POS txn", (r) => r.txn], ["item", "SKU", (r) => r.item || ""], ["sw", "SWIMS sale record", swText]];
+ if (inv) LCOLS.push(["inv", "SWIMS status", invStatus], ["invloc", "SWIMS location", invLoc]);
  const kf = (LCOLS.find((c) => c[0] === ls.k) || LCOLS[1])[2]; const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
  rows = rows.map((r) => [String(kf(r) || "").toUpperCase(), r]).sort((a, b) => cmp(a[0], b[0]) * ls.dir || cmp(b[1].d, a[1].d) || cmp(a[1].store, b[1].store) || cmp(a[1].epc, b[1].epc)).map((x) => x[1]);
  const setSort = (k, dir) => { state.lsort = { k, dir }; state.page = 0; render(); };
  const SORTS = [["d:-1", "Date: newest first"], ["d:1", "Date: oldest first"], ["st:1", "Issue: A to Z"], ["store:1", "Store: A to Z"], ["brand:1", "Brand: A to Z"], ["epc:1", "EPC: A to Z"], ["item:1", "SKU: A to Z"], ["txn:1", "POS txn: low to high"]];
+ if (inv) SORTS.push(["inv:1", "SWIMS status: A to Z"], ["invloc:1", "SWIMS location: A to Z"]);
  const curSort = ls.k + ":" + ls.dir; if (!SORTS.some((s) => s[0] === curSort)) SORTS.push([curSort, (LCOLS.find((c) => c[0] === ls.k) || LCOLS[1])[1] + (ls.dir < 0 ? ": Z to A" : ": A to Z")]);
  const sortSel = h("select", { "aria-label": "Sort", onchange: (e) => { const p = e.target.value.split(":"); setSort(p[0], +p[1]); } }, SORTS.map(([v, t]) => h("option", { value: v }, t))); sortSel.value = curSort;
  const dateSel = h("select", { "aria-label": "Date", onchange: (e) => { state.ldate = e.target.value; state.page = 0; render(); } }, h("option", { value: "" }, "All dates"), dates.map((d) => h("option", { value: d }, fdayL(d) + " (" + nf(dcount[d]) + ")"))); dateSel.value = state.ldate || "";
+ const invSel = inv ? h("select", { "aria-label": "SWIMS status", onchange: (e) => { state.linv = e.target.value; state.page = 0; render(); } }, h("option", { value: "" }, "Any status"), Object.keys(icount).sort((x, y) => icount[y] - icount[x]).map((k) => h("option", { value: k }, k + " (" + nf(icount[k]) + ")"))) : null; if (invSel) invSel.value = state.linv || "";
  const per = 50, pages = Math.max(1, Math.ceil(rows.length / per)); if (state.page >= pages) state.page = pages - 1; const slice = rows.slice(state.page * per, (state.page + 1) * per);
  const title = state.cat ? STATUS[state.cat].label : state.vendor ? "Ask the " + VENDOR[state.vendor] : "All issues";
  const chips = h("div", { class: "brandrow", style: "margin-bottom:12px" }, h("button", { class: "bchip", "aria-pressed": !state.cat && !state.vendor ? "true" : "false", onclick: () => { state.cat = ""; state.vendor = ""; state.page = 0; render(); } }, "All issues"),
   ISSUES.map((k) => h("button", { class: "bchip", "aria-pressed": state.cat === k ? "true" : "false", onclick: () => { state.cat = state.cat === k ? "" : k; state.vendor = ""; state.page = 0; render(); } }, h("i", { style: "width:10px;height:10px;border-radius:3px;background:var(" + STATUS[k].v + ")" }), STATUS[k].short)));
- const card = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: title }), h("div", { class: "sub", text: (state.cat ? STATUS[state.cat].desc + " " : "") + nf(rows.length) + " EPCs in this view." })),
+ const card = h("div", { class: "card" }, h("div", { class: "chead" }, h("div", null, h("h2", { text: title }), h("div", { class: "sub", text: (state.cat ? STATUS[state.cat].desc + " " : "") + nf(rows.length) + " EPCs in this view." + (inv ? " SWIMS status and location show where SWIMS has each EPC now" + (invAsOf() ? " (stock load of " + invAsOf() + ")" : "") + ", not at the time of sale." : "") })),
   h("button", { class: "btn sp", onclick: () => download("SyncCheck_" + (state.cat || state.vendor || "all_issues") + "_" + state.maxD + ".csv", csvOf(rows)) }, ico("download"), "Export CSV"), h("button", { class: "btn pri", onclick: () => openVendorNote(rows) }, ico("msg"), "Note for vendor")), fToggle("list", [chips,
   h("div", { class: "row", style: "flex-wrap:wrap;gap:8px;margin-bottom:12px" }, h("input", { class: "inp", type: "search", placeholder: "Search EPC, transaction or SKU", value: state.q, style: "width:min(420px,100%)", "aria-label": "Search", oninput: (e) => { state.q = e.target.value; state.page = 0; const p = e.target.selectionStart; render(); const n = document.querySelector('input[type="search"]'); if (n) { n.focus(); n.setSelectionRange(p, p); } } }),
-   h("label", { class: "fl" }, "Date", dateSel), h("label", { class: "fl" }, "Sort", sortSel))]));
+   h("label", { class: "fl" }, "Date", dateSel), invSel ? h("label", { class: "fl" }, "SWIMS status", invSel) : null, h("label", { class: "fl" }, "Sort", sortSel))]));
  if (!rows.length) {
   const qq = state.q.trim();   // green tick only when there is no search text: an empty search result is not a "all good"
   card.append(h("div", { class: "empty" }, h("div", { html: qq ? NOMATCH_ART : EMPTY_ART }), h("div", { text: qq ? "No issue matches “" + qq + "” in this view." : "No issues for these filters." }),
@@ -316,9 +326,9 @@ function viewList() {
    qq ? h("button", { class: "btn", style: "margin-top:12px", onclick: () => { state.sq = qq; go("search"); } }, ico("search"), "Search all sales") : null));
   return [card];
  }
- card.append(h("div", { class: "tw" }, h("table", null, h("thead", null, h("tr", null, LCOLS.map((c) => h("th", { class: "sortable", title: "Click to sort", tabindex: 0, text: c[1] + (ls.k === c[0] ? (ls.dir < 0 ? " ▾" : " ▴") : ""), onclick: () => setSort(c[0], ls.k === c[0] ? -ls.dir : (c[0] === "d" ? -1 : 1)), onkeydown: (e) => { if (e.key === "Enter") e.target.click(); } })))), h("tbody", null, slice.map((r) => h("tr", { style: "cursor:pointer", onclick: () => openIssue(r) },
+ card.append(h("div", { class: "tw" }, h("table", { class: inv ? "tight" : null }, h("thead", null, h("tr", null, LCOLS.map((c) => h("th", { class: "sortable", title: "Click to sort", tabindex: 0, text: c[1] + (ls.k === c[0] ? (ls.dir < 0 ? " ▾" : " ▴") : ""), onclick: () => setSort(c[0], ls.k === c[0] ? -ls.dir : (c[0] === "d" ? -1 : 1)), onkeydown: (e) => { if (e.key === "Enter") e.target.click(); } })))), h("tbody", null, slice.map((r) => h("tr", { style: "cursor:pointer", onclick: () => openIssue(r) },
   h("td", null, h("span", { class: "tag" }, h("i", { style: "background:var(" + STATUS[r.st].v + ")" }), STATUS[r.st].short)), h("td", { text: fday(r.d) }), h("td", { text: r.store }), h("td", { text: brandInfo(storeInfo(r.store).brand).label }), h("td", { class: "mono", text: r.epc }), h("td", { class: "mono", text: r.txn }), h("td", { class: "mono", text: r.item || "" }),
-  h("td", { class: "mono", text: swText(r) })))))),
+  h("td", { class: "mono", text: swText(r) }), inv ? h("td", { class: invStatus(r) === INV_NONE ? "muted" : "", text: invStatus(r) || "–" }) : null, inv ? h("td", { text: invLoc(r) || "–" }) : null))))),
   h("div", { class: "pager" }, h("span", { class: "pcount" }, h("b", { text: nf(rows.length) }), " line" + (rows.length === 1 ? "" : "s") + " with these filters · showing " + nf(state.page * per + 1) + " to " + nf(state.page * per + slice.length)), h("span", { text: "Page " + (state.page + 1) + " of " + pages }), h("button", { class: "btn sm", disabled: state.page === 0, onclick: () => { state.page--; render(); } }, "Prev"), h("button", { class: "btn sm", disabled: state.page >= pages - 1, onclick: () => { state.page++; render(); } }, "Next")));
  return [card];
 }
@@ -406,5 +416,6 @@ function viewGuide() {
   h("h3", { style: "margin:24px 0 8px", text: "Good to know" }),
   h("p", null, "BigQuery loads once a day, so the latest POS day shows as pending, not as an issue. Returns and exchanges are matched to the SWIMS return record (transaction number with -REF). Voided POS lines are ignored."),
   h("p", null, "A banner appears when a large share of a day's sales is missing from SWIMS across all stores, because that usually points to a data gap and not to one store. Brand follows the store: each store is listed under its own brand, which an editor can change under Stores."),
+  h("p", null, "The Issue list also shows the SWIMS status and SWIMS location of each EPC, for example Check In at a store or Check out. This is where SWIMS has the EPC at its latest stock load, not where it was at the time of sale. “Not in SWIMS” means SWIMS has no stock record for that EPC."),
   h("p", { class: "muted", text: "Scanned this run: about " + ((state.meta && state.meta.scannedMB) || "?") + " MB of BigQuery. POS table loaded " + String((state.meta && state.meta.posLoaded) || "").slice(0, 16) + " UTC, SWIMS table loaded " + String((state.meta && state.meta.swimsLoaded) || "").slice(0, 16) + " UTC." }))];
 }

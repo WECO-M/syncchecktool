@@ -159,6 +159,13 @@ function missingPosStores() {
  for (const r of state.sum) { if (!days.has(r.d) || !rowVisible(r)) continue; const x = (per[r.store] = per[r.store] || { pos: 0, sw: 0 }); if (r.st === "SWIMS_ONLY") x.sw += r.n; else x.pos += r.n; }
  return Object.keys(per).filter((k) => per[k].pos === 0 && per[k].sw >= 20).sort().map((k) => ({ store: k, cc: storeInfo(k).country, sw: per[k].sw }));
 }
+/* Current SWIMS stock status and location of an EPC. It is the state at the last SWIMS stock load (meta.invLoaded), not at the time of sale.
+   Empty text = the feed did not carry it (older data). "Not in SWIMS" = the feed looked and SWIMS has no such EPC. */
+const invOn = () => !!(state.meta && state.meta.invLoaded);
+const INV_NONE = "Not in SWIMS";
+const invStatus = (r) => (!invOn() || !r.inv ? "" : r.invst || INV_NONE);
+const invLoc = (r) => (!invOn() || !r.inv || !r.invst ? "" : (r.invloc || "") + (r.invto ? (r.invloc ? " → " : "→ ") + r.invto : ""));
+const invAsOf = () => { const t = Date.parse(String((state.meta && state.meta.invLoaded) || "").replace(" ", "T").replace(/\+00$/, "Z")); return isNaN(t) ? "" : fday(iso(new Date(t + 8 * 3600e3))); };   // table load time is UTC; show the local (UTC+8) day
 function issueRows() {
  const p = makePred(); const q = state.q.trim().toUpperCase();
  return state.iss.filter((r) => p(r) && (state.cat ? r.st === state.cat : r.st !== "PENDING") && (!q || r.epc.toUpperCase().includes(q) || r.txn.toUpperCase().includes(q) || (r.item || "").toUpperCase().includes(q) || (r.swtxn || "").toUpperCase().includes(q)));
@@ -184,7 +191,7 @@ function hover(el, fn) {
 document.addEventListener("scroll", hideTip, true);
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast._t); toast._t = setTimeout(() => { t.style.display = "none"; }, 2800); }
 function openDrawer(nodes) {
- const d = $("drawer"); d.replaceChildren(h("button", { class: "btn sm x", "aria-label": "Close", onclick: closeDrawer }, ico("x")), ...nodes);
+ const d = $("drawer"); d.replaceChildren(h("button", { class: "btn sm x", "aria-label": "Close", onclick: closeDrawer }, ico("x")), ...[].concat(nodes).flat(3).filter((n) => n !== null && n !== undefined && n !== false));   // optional parts may be null or nested
  d.classList.add("on"); $("scrim").classList.add("on"); d.scrollTop = 0;
 }
 function closeDrawer() { $("drawer").classList.remove("on"); $("scrim").classList.remove("on"); }
@@ -192,7 +199,8 @@ window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(
 function download(name, text) { const a = h("a", { href: URL.createObjectURL(new Blob(["﻿" + text], { type: "text/csv;charset=utf-8" })), download: name }); document.body.append(a); a.click(); a.remove(); }
 function csvOf(rows) {
  const head = ["issue", "date", "store", "country", "brand", "channel", "epc", "pos_txn", "sku", "swims_txn", "swims_store", "swims_rows"];
+ const inv = invOn(); if (inv) head.push("swims_epc_status", "swims_epc_location", "swims_epc_to_location", "swims_epc_last_update");
  // Long all-digit values (transaction numbers, some EPCs) are written as ="..." so Excel keeps them as text instead of 2.6111E+13.
  const esc = (v) => { v = v === null || v === undefined ? "" : String(v); if (/^\d{11,}$/.test(v)) return '"=""' + v + '"""'; return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
- return [head.join(",")].concat(rows.map((r) => [STATUS[r.st] ? STATUS[r.st].short : r.st, r.d, r.store, r.cc, storeInfo(r.store).brand, r.ch, r.epc, r.txn, r.item, r.swtxn, r.swstore, r.cnt].map(esc).join(","))).join("\r\n");
+ return [head.join(",")].concat(rows.map((r) => [STATUS[r.st] ? STATUS[r.st].short : r.st, r.d, r.store, r.cc, storeInfo(r.store).brand, r.ch, r.epc, r.txn, r.item, r.swtxn, r.swstore, r.cnt].concat(inv ? [invStatus(r), r.inv && r.invst ? r.invloc : "", r.inv && r.invst ? r.invto : "", r.inv && r.invst ? r.invon : ""] : []).map(esc).join(","))).join("\r\n");
 }
