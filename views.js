@@ -18,7 +18,9 @@ function render() {
  if (!state.user) return;
  const keepY = window.scrollY; // keep the reading position when a click re-renders (go() resets it on purpose)
  const oldTabs = root.querySelector(".tabs"); const keepX = oldTabs ? oldTabs.scrollLeft : 0; // the tab bar scrolls sideways on phones; rebuilding it reset it to the first tab
+ const oldTw = root.querySelector(".tw"); const keepTw = oldTw && render._view === state.view ? oldTw.scrollLeft : 0; render._view = state.view; // a wide table keeps its sideways position when sorting, filtering or paging
  try { renderInner(root); } finally {
+  if (keepTw) { const tw = root.querySelector(".tw"); if (tw) tw.scrollLeft = keepTw; }
   if (window.scrollY !== keepY && keepY > 0) window.scrollTo(0, keepY);
   const nt = root.querySelector(".tabs");
   if (nt) { nt.scrollLeft = keepX; const on = nt.querySelector('[aria-selected="true"]'); if (on) { const l = on.offsetLeft - nt.offsetLeft; if (l < nt.scrollLeft || l + on.offsetWidth > nt.scrollLeft + nt.clientWidth) nt.scrollLeft = Math.max(0, l - 16); } }
@@ -299,7 +301,7 @@ function viewList() {
  if (state.linv && !icount[state.linv]) state.linv = "";
  if (state.linv) rows = rows.filter((r) => invStatus(r) === state.linv);
  const ls = state.lsort || (state.lsort = { k: "d", dir: -1 });
- const swText = (r) => r.st === "BAD_EPC" ? "nothing (not a valid EPC)" : r.st === "SWIMS_ONLY" ? r.swtxn + " · " + r.swstore : r.st === "NOT_DEDUCTED" ? "nothing" : r.st === "TXN_MISMATCH" ? (r.swtxn || "") + " · " + (r.swstore || "") : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "no return record" : "";
+ const swText = (r) => r.st === "BAD_EPC" ? "not a valid EPC" : r.st === "SWIMS_ONLY" ? r.swtxn + " · " + r.swstore : r.st === "NOT_DEDUCTED" ? "nothing" : r.st === "TXN_MISMATCH" ? (r.swtxn || "") + " · " + (r.swstore || "") : r.st === "DUPLICATE" ? r.cnt + " sale records" : r.st === "RETURN_MISSING" ? "no return record" : "";
  const LCOLS = [["st", "Issue", (r) => (STATUS[r.st] || {}).short || r.st], ["d", "Date", (r) => r.d], ["store", "Store", (r) => r.store], ["brand", "Brand", (r) => brandInfo(storeInfo(r.store).brand).label], ["epc", "EPC", (r) => r.epc], ["txn", "POS txn", (r) => r.txn], ["item", "SKU", (r) => r.item || ""], ["sw", "SWIMS sale record", swText]];
  if (inv) LCOLS.push(["inv", "SWIMS status", invStatus], ["invloc", "SWIMS location", invLoc]);
  const kf = (LCOLS.find((c) => c[0] === ls.k) || LCOLS[1])[2]; const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
@@ -328,7 +330,7 @@ function viewList() {
  }
  card.append(h("div", { class: "tw" }, h("table", { class: inv ? "tight" : null }, h("thead", null, h("tr", null, LCOLS.map((c) => h("th", { class: "sortable", title: "Click to sort", tabindex: 0, text: c[1] + (ls.k === c[0] ? (ls.dir < 0 ? " ▾" : " ▴") : ""), onclick: () => setSort(c[0], ls.k === c[0] ? -ls.dir : (c[0] === "d" ? -1 : 1)), onkeydown: (e) => { if (e.key === "Enter") e.target.click(); } })))), h("tbody", null, slice.map((r) => h("tr", { style: "cursor:pointer", onclick: () => openIssue(r) },
   h("td", null, h("span", { class: "tag" }, h("i", { style: "background:var(" + STATUS[r.st].v + ")" }), STATUS[r.st].short)), h("td", { text: fday(r.d) }), h("td", { text: r.store }), h("td", { text: brandInfo(storeInfo(r.store).brand).label }), h("td", { class: "mono", text: r.epc }), h("td", { class: "mono", text: r.txn }), h("td", { class: "mono", text: r.item || "" }),
-  h("td", { class: "mono", text: swText(r) }), inv ? h("td", { class: invStatus(r) === INV_NONE ? "muted" : "", text: invStatus(r) || "–" }) : null, inv ? h("td", { text: invLoc(r) || "–" }) : null))))),
+  h("td", { class: "mono", text: swText(r) }), inv ? h("td", { class: invStatus(r) === INV_NONE ? "muted" : "", text: invStatus(r) || "–" }) : null, inv ? h("td", { class: "wrapcell", text: invLoc(r) || "–" }) : null))))),
   h("div", { class: "pager" }, h("span", { class: "pcount" }, h("b", { text: nf(rows.length) }), " line" + (rows.length === 1 ? "" : "s") + " with these filters · showing " + nf(state.page * per + 1) + " to " + nf(state.page * per + slice.length)), h("span", { text: "Page " + (state.page + 1) + " of " + pages }), h("button", { class: "btn sm", disabled: state.page === 0, onclick: () => { state.page--; render(); } }, "Prev"), h("button", { class: "btn sm", disabled: state.page >= pages - 1, onclick: () => { state.page++; render(); } }, "Next")));
  return [card];
 }

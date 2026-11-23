@@ -196,6 +196,28 @@ function openDrawer(nodes) {
 }
 function closeDrawer() { $("drawer").classList.remove("on"); $("scrim").classList.remove("on"); }
 window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+/* Wide tables (.tw): click, hold and drag sideways to scroll them (mouse only; touch screens already scroll with a finger).
+   A drag is not a click, so it does not open the row. Double-click still selects text for copying. */
+(function () {
+ let el = null, x0 = 0, s0 = 0, moved = false, endedAt = 0;
+ const end = () => { if (!el) return; if (moved) { endedAt = Date.now(); document.body.classList.remove("dragx"); } el = null; moved = false; };
+ document.addEventListener("pointerdown", (e) => {
+  if (e.pointerType !== "mouse" || e.button !== 0 || !e.target.closest) return;
+  const tw = e.target.closest(".tw"); if (!tw || tw.scrollWidth <= tw.clientWidth + 1) return;
+  if (e.target.closest("button,a,input,select,textarea")) return;
+  el = tw; x0 = e.clientX; s0 = tw.scrollLeft; moved = false;
+ });
+ document.addEventListener("pointermove", (e) => {
+  if (!el) return;
+  if (!(e.buttons & 1)) { end(); return; }          // button released outside the window
+  const dx = e.clientX - x0; if (!moved && Math.abs(dx) < 6) return;
+  if (!moved) { moved = true; document.body.classList.add("dragx"); hideTip(); const s = window.getSelection && window.getSelection(); if (s) s.removeAllRanges(); }
+  el.scrollLeft = s0 - dx; e.preventDefault();
+ });
+ document.addEventListener("pointerup", end); document.addEventListener("pointercancel", end);
+ document.addEventListener("click", (e) => { if (Date.now() - endedAt < 120) { e.stopPropagation(); e.preventDefault(); } }, true);
+ document.addEventListener("dragstart", (e) => { if (el) e.preventDefault(); });
+})();
 function download(name, text) { const a = h("a", { href: URL.createObjectURL(new Blob(["﻿" + text], { type: "text/csv;charset=utf-8" })), download: name }); document.body.append(a); a.click(); a.remove(); }
 function csvOf(rows) {
  const head = ["issue", "date", "store", "country", "brand", "channel", "epc", "pos_txn", "sku", "swims_txn", "swims_store", "swims_rows"];
